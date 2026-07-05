@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>SafeHer — Dashboard</title>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
+  <style>
+    :root {
+      --bg: #0d0a14; --surface: #15121f; --border: #2a2040;
+      --accent: #c84b9e; --accent2: #e07ac0;
+      --safe: #22c97a; --text: #f2eef9; --muted: #8a7fa8;
+    }
+    * { box-sizing:border-box; margin:0; padding:0; }
+    body { background:var(--bg); color:var(--text); font-family:'DM Sans',sans-serif; min-height:100vh; }
+    body::before {
+      content:''; position:fixed; top:-180px; left:-180px; width:560px; height:560px;
+      background:radial-gradient(circle,rgba(200,75,158,0.13) 0%,transparent 70%);
+      pointer-events:none; z-index:0;
+    }
+    body::after {
+      content:''; position:fixed; bottom:-180px; right:-180px; width:480px; height:480px;
+      background:radial-gradient(circle,rgba(34,201,122,0.07) 0%,transparent 70%);
+      pointer-events:none; z-index:0;
+    }
+    header {
+      position:sticky; top:0; z-index:10;
+      display:flex; align-items:center; justify-content:space-between;
+      padding:18px 32px; border-bottom:1px solid var(--border);
+      background:rgba(13,10,20,0.88); backdrop-filter:blur(14px);
+    }
+    .logo { font-family:'Syne',sans-serif; font-weight:800; font-size:1.55rem; letter-spacing:.06em; }
+    .logo span { color:var(--accent); }
+    .user-info { display:flex; align-items:center; gap:12px; }
+    .avatar {
+      width:38px; height:38px; border-radius:50%;
+      background:linear-gradient(135deg,var(--accent),var(--accent2));
+      display:flex; align-items:center; justify-content:center;
+      font-family:'Syne',sans-serif; font-weight:700; font-size:.95rem; color:#fff;
+    }
+    .user-name { font-size:.9rem; color:var(--muted); }
+    .status-bar {
+      position:relative; z-index:5; margin:24px 32px 0;
+      padding:13px 20px; background:var(--surface);
+      border:1px solid var(--border); border-radius:12px;
+      display:flex; align-items:center; gap:12px;
+    }
+    .status-dot {
+      width:10px; height:10px; border-radius:50%;
+      background:var(--safe); box-shadow:0 0 8px var(--safe); animation:pulse 2s infinite;
+    }
+    @keyframes pulse { 0%,100%{opacity:1;transform:scale(1);} 50%{opacity:.5;transform:scale(1.35);} }
+    .status-text { font-size:.88rem; color:var(--muted); }
+    .status-text strong { color:var(--text); }
+    main {
+      position:relative; z-index:5;
+      padding:24px 32px 48px; display:grid; grid-template-columns:1fr 1fr; gap:18px;
+    }
+    @media(max-width:680px){ main{grid-template-columns:1fr;padding:16px;} header{padding:14px 16px;} .status-bar{margin:14px 16px 0;} }
+    .card {
+      background:var(--surface); border:1px solid var(--border);
+      border-radius:18px; padding:24px;
+      transition:border-color .25s,transform .2s; animation:fadeUp .5s ease both;
+    }
+    .card:nth-child(1){animation-delay:.05s;} .card:nth-child(2){animation-delay:.1s;} .card:nth-child(3){animation-delay:.15s;grid-column:1/-1;}
+    @keyframes fadeUp { from{opacity:0;transform:translateY(18px);} to{opacity:1;transform:translateY(0);} }
+    .card-icon { font-size:2rem; margin-bottom:12px; }
+    .card-label { font-size:.7rem; letter-spacing:.13em; text-transform:uppercase; color:var(--muted); margin-bottom:8px; }
+    .card-title { font-family:'Syne',sans-serif; font-weight:700; font-size:1.2rem; margin-bottom:6px; }
+    .card-desc { font-size:.87rem; color:var(--muted); line-height:1.55; }
+    .card-journey { background:linear-gradient(135deg,#1c0e1a,#100d1c); border-color:rgba(200,75,158,.3); }
+    .card-routine { background:linear-gradient(135deg,#0a1620,#0d1020); border-color:rgba(34,201,122,.2); }
+    .btn {
+      display:inline-flex; align-items:center; gap:8px;
+      margin-top:16px; padding:11px 22px; border-radius:10px; border:none; cursor:pointer;
+      font-family:'DM Sans',sans-serif; font-weight:500; font-size:.88rem;
+      text-decoration:none; transition:all .2s;
+    }
+    .btn-primary { background:var(--accent); color:#fff; }
+    .btn-primary:hover { background:var(--accent2); transform:scale(1.04); }
+    .btn-safe { background:var(--safe); color:#0a1a12; font-weight:600; }
+    .btn-safe:hover { background:#35e891; transform:scale(1.04); }
+    .contacts-list { margin-top:14px; display:flex; flex-direction:column; gap:10px; }
+    .contact-item {
+      display:flex; align-items:center; gap:12px; padding:10px 14px;
+      background:rgba(255,255,255,.04); border-radius:10px; border:1px solid var(--border);
+    }
+    .contact-avatar {
+      width:32px; height:32px; border-radius:50%;
+      background:linear-gradient(135deg,#7c3aed,#c84b9e);
+      display:flex; align-items:center; justify-content:center;
+      font-size:.75rem; font-weight:700; color:#fff; flex-shrink:0;
+    }
+    .contact-name { font-size:.88rem; font-weight:500; }
+    .contact-role { font-size:.75rem; color:var(--muted); }
+    .contact-dot { margin-left:auto; width:8px; height:8px; border-radius:50%; background:var(--safe); }
+  </style>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+  <script src="config.js"></script>
+</head>
+<body>
+  <header>
+    <div class="logo">Safe<span>Her</span></div>
+    <div class="user-info">
+      <div class="avatar" id="userAvatar">?</div>
+      <span class="user-name" id="userNameDisplay">Loading…</span>
+      <button onclick="doLogout()" style="background:none;border:1px solid var(--border);color:var(--muted);border-radius:8px;padding:5px 12px;font-size:.78rem;cursor:pointer;margin-left:8px;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">Log out</button>
+    </div>
+  </header>
+
+  <div class="status-bar">
+    <div class="status-dot"></div>
+    <div class="status-text"><strong>You are safe.</strong> No active journey in progress.</div>
+  </div>
+
+  <main>
+    <div class="card card-journey">
+      <div class="card-icon">🗺️</div>
+      <div class="card-label">Journey Tracking</div>
+      <div class="card-title">Start a Safe Journey</div>
+      <div class="card-desc">Set your destination, share live location with all your contacts, and get notified when you arrive safely.</div>
+      <a class="btn btn-primary" href="journey.html">Start Journey →</a>
+    </div>
+
+    <div class="card card-routine">
+      <div class="card-icon">📅</div>
+      <div class="card-label">Daily Routine</div>
+      <div class="card-title">Your Safe Schedule</div>
+      <div class="card-desc">Add daily checkpoints. Your emergency contacts get alerted if you miss one.</div>
+      <a class="btn btn-safe" href="routine.html">Manage Routine →</a>
+    </div>
+
+    <div class="card" style="grid-column:1/-1;">
+      <div class="card-label">Emergency Contacts</div>
+      <div class="card-title">Your Safety Circle</div>
+      <div class="contacts-list" id="contactsList">
+        <div style="color:var(--muted);font-size:.85rem;">Loading contacts…</div>
+      </div>
+    </div>
+
+    <div class="card" style="background:linear-gradient(135deg,#0a1020,#10101a);border-color:rgba(34,201,122,.2);">
+      <div class="card-icon">🗺️</div>
+      <div class="card-label">Safety Map</div>
+      <div class="card-title">Check Unsafe Zones</div>
+      <div class="card-desc">View community-reported unsafe zones on a live heatmap. Report dangerous areas near you.</div>
+      <a class="btn btn-safe" href="map.html">Open Safety Map →</a>
+    </div>
+
+    <div class="card" style="background:linear-gradient(135deg,#1a0e0a,#120d10);border-color:rgba(200,75,158,.25);">
+      <div class="card-icon">📋</div>
+      <div class="card-label">Report & Evidence</div>
+      <div class="card-title">File a Report</div>
+      <div class="card-desc">Document incidents, hash evidence with SHA-256, generate an FIR draft, or trigger a fake call to escape danger.</div>
+      <a class="btn btn-primary" href="fin.html">Open Report Tools →</a>
+    </div>
+  </main>
+
+<script>
+// ── Auth guard + dynamic data ──
+auth.onAuthStateChanged(async function(user) {
+  if (!user) { window.location.href = 'index.html'; return; }
+
+  // Display name
+  const name = sessionStorage.getItem('userName') || user.displayName || user.email.split('@')[0] || 'User';
+  document.getElementById('userNameDisplay').textContent = name;
+  document.getElementById('userAvatar').textContent = name.charAt(0).toUpperCase();
+
+  // Load emergency contacts — try profile blob first, then alerts collection
+  try {
+    const ENC_KEY = 'SafeHer_AES_Secret_Key_2024!';
+    const snap = await db.collection('users').doc(user.uid).get();
+    const data = snap.data() || {};
+    let contacts = [];
+
+    // Method 1: decrypt profile blob
+    if (data.profile) {
+      try {
+        const bytes = CryptoJS.AES.decrypt(data.profile, ENC_KEY);
+        const parsed = JSON.parse(bytes.toString(CryptoJS.enc.Utf8));
+        contacts = (parsed.emergencyContacts || []).filter(c => c.name);
+      } catch(e) { contacts = []; }
+    }
+
+    // Method 2: fallback — read from alerts collection (where register.html saves them)
+    if (contacts.length === 0) {
+      const alertsSnap = await db.collection('alerts')
+        .where('fromUid', '==', user.uid)
+        .where('type', '==', 'new_user')
+        .get();
+      alertsSnap.forEach(doc => {
+        const d = doc.data();
+        if (d.toName) contacts.push({ name: d.toName, relation: d.relation || 'Contact', phone: d.plainPhone || '', email: d.toEmail || '' });
+      });
+    }
+
+    // Save to session for other pages
+    if (contacts.length > 0) {
+      sessionStorage.setItem('emergencyContacts', JSON.stringify(contacts));
+    }
+
+    const list = document.getElementById('contactsList');
+    if (contacts.length === 0) {
+      list.innerHTML = '<div style="color:var(--muted);font-size:.85rem;">No emergency contacts saved. <a href="register.html" style="color:var(--accent)">Add contacts →</a></div>';
+    } else {
+      list.innerHTML = contacts.map(c => `
+        <div class="contact-item">
+          <div class="contact-avatar">${c.name.charAt(0).toUpperCase()}</div>
+          <div><div class="contact-name">${c.name}</div><div class="contact-role">${c.relation || 'Emergency Contact'}</div></div>
+          <div class="contact-dot"></div>
+        </div>
+      `).join('');
+    }
+  } catch(e) {
+    console.error('Contact load error:', e);
+    document.getElementById('contactsList').innerHTML = '<div style="color:var(--muted);font-size:.85rem;">Could not load contacts.</div>';
+  }
+});
+
+function doLogout() {
+  sessionStorage.clear();
+  auth.signOut().then(() => window.location.href = 'index.html');
+}
+</script>
+</body>
+</html>

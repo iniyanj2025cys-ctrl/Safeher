@@ -1,0 +1,36 @@
+{
+  "name": "SafeHer — Women's Safety",
+  "short_name": "SafeHer",
+  "description": "Voice-activated SOS and emergency alert app for women's safety",
+  "start_url": "/index.html",
+  "display": "standalone",
+  "background_color": "#07080f",
+  "theme_color": "#ff2d6b",
+  "orientation": "portrait",
+  "scope": "./",
+  "lang": "en-IN",
+  "categories": ["safety", "utilities"],
+  "icons": [
+    {
+      "src": "icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Voice SOS",
+      "short_name": "Voice SOS",
+      "description": "Open voice detection immediately",
+      "url": "./sos.html?mode=voice",
+      "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }]
+    }
+  ]
+}

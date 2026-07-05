@@ -1,0 +1,1928 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SafeHer — Report & Fake Call</title>
+
+<!-- Fonts -->
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=JetBrains+Mono:wght@400;500&family=Nunito:wght@400;500;600&display=swap" rel="stylesheet">
+
+<!-- External deps -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+
+<!-- 🔥 Firebase v9 compat (works without build tools) -->
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+
+<!-- App styles -->
+<style>
+/* ─── SafeHer — style.css ─── */
+:root {
+  --bg: #0a0b0f;
+  --surface: #13151c;
+  --card: #1a1d28;
+  --border: #272b3a;
+  --accent: #ff3b5c;
+  --accent2: #ff8c00;
+  --accent3: #00d4aa;
+  --text: #f0f2ff;
+  --muted: #7b82a0;
+  --safe: #00d4aa;
+  --danger: #ff3b5c;
+  --warn: #ff8c00;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: 'Nunito', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* Background pulse */
+body::before {
+  content: '';
+  position: fixed;
+  top: -200px; left: -200px;
+  width: 600px; height: 600px;
+  background: radial-gradient(circle, rgba(255,59,92,0.07) 0%, transparent 70%);
+  animation: bgpulse 8s ease-in-out infinite;
+  pointer-events: none;
+  z-index: 0;
+}
+body::after {
+  content: '';
+  position: fixed;
+  bottom: -200px; right: -100px;
+  width: 500px; height: 500px;
+  background: radial-gradient(circle, rgba(0,212,170,0.06) 0%, transparent 70%);
+  animation: bgpulse 10s ease-in-out infinite reverse;
+  pointer-events: none;
+  z-index: 0;
+}
+@keyframes bgpulse { 0%,100%{opacity:.5;transform:scale(1)} 50%{opacity:1;transform:scale(1.1)} }
+
+/* ─── HEADER ─── */
+header {
+  position: sticky; top: 0; z-index: 100;
+  background: rgba(10,11,15,0.85);
+  backdrop-filter: blur(20px);
+  border-bottom: 1px solid var(--border);
+  padding: 0 24px;
+  display: flex; align-items: center; justify-content: space-between;
+  height: 60px;
+}
+.logo { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 1.2rem; display:flex;align-items:center;gap:8px; }
+.logo span { color: var(--accent); }
+.logo-shield { width:28px;height:28px;background:linear-gradient(135deg,var(--accent),var(--accent2));border-radius:50% 50% 50% 50% / 60% 60% 40% 40%;display:flex;align-items:center;justify-content:center;font-size:.75rem; }
+.header-badge { font-family:'JetBrains Mono',monospace; font-size:.65rem; background:rgba(255,59,92,.15); color:var(--accent); border:1px solid rgba(255,59,92,.3); border-radius:4px; padding:3px 8px; }
+
+/* Firebase status indicator in header */
+#firebase-status {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: .65rem;
+  border-radius: 4px;
+  padding: 3px 10px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  transition: all .3s;
+}
+#firebase-status.connecting { background:rgba(255,140,0,.15); color:var(--accent2); border:1px solid rgba(255,140,0,.3); }
+#firebase-status.connected  { background:rgba(0,212,170,.12); color:var(--accent3); border:1px solid rgba(0,212,170,.2); }
+#firebase-status.error      { background:rgba(255,59,92,.12); color:var(--accent); border:1px solid rgba(255,59,92,.2); }
+
+/* ─── NAV TABS ─── */
+.nav-tabs {
+  display: flex; gap: 4px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 4px;
+  margin: 20px 24px 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.nav-tabs::-webkit-scrollbar { display:none; }
+.tab-btn {
+  flex: 1; min-width: 120px;
+  background: transparent; border: none;
+  color: var(--muted); font-family: 'Syne', sans-serif;
+  font-weight: 600; font-size: .8rem;
+  padding: 10px 16px; border-radius: 8px;
+  cursor: pointer; transition: all .2s;
+  white-space: nowrap;
+  display: flex; align-items: center; gap: 6px; justify-content: center;
+}
+.tab-btn.active { background: var(--card); color: var(--text); box-shadow: 0 2px 8px rgba(0,0,0,.3); }
+.tab-btn:hover:not(.active) { color: var(--text); background: rgba(255,255,255,.04); }
+.tab-icon { font-size: 1rem; }
+
+/* ─── MAIN ─── */
+main { position:relative;z-index:1; padding: 24px; max-width: 800px; margin: 0 auto; }
+.section { display: none; animation: fadeUp .3s ease; }
+.section.active { display: block; }
+@keyframes fadeUp { from{opacity:0;transform:translateY(12px)} to{opacity:1;transform:translateY(0)} }
+
+/* ─── CARDS ─── */
+.card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 24px;
+  margin-bottom: 20px;
+  position: relative; overflow: hidden;
+}
+.card::before { content:''; position:absolute;top:0;left:0;right:0;height:2px; }
+.card.accent-red::before    { background:linear-gradient(90deg,var(--accent),transparent); }
+.card.accent-teal::before   { background:linear-gradient(90deg,var(--accent3),transparent); }
+.card.accent-orange::before { background:linear-gradient(90deg,var(--accent2),transparent); }
+.card.accent-purple::before { background:linear-gradient(90deg,#9b59b6,transparent); }
+
+.card-title { font-family:'Syne',sans-serif; font-weight:700; font-size:1rem; margin-bottom:16px; display:flex;align-items:center;gap:8px; }
+.card-title .dot { width:8px;height:8px;border-radius:50%;flex-shrink:0; }
+.dot-red    { background:var(--accent);  box-shadow:0 0 8px var(--accent); }
+.dot-teal   { background:var(--accent3); box-shadow:0 0 8px var(--accent3); }
+.dot-orange { background:var(--accent2); box-shadow:0 0 8px var(--accent2); }
+.dot-purple { background:#9b59b6;        box-shadow:0 0 8px #9b59b6; }
+
+/* ─── FORM ELEMENTS ─── */
+label { display:block; font-size:.75rem; font-weight:600; color:var(--muted); text-transform:uppercase; letter-spacing:.06em; margin-bottom:6px; }
+input[type=text], input[type=file], textarea, select {
+  width:100%; background:var(--surface); border:1px solid var(--border);
+  border-radius:10px; color:var(--text); font-family:'Nunito',sans-serif;
+  font-size:.9rem; padding:12px 14px; outline:none;
+  transition: border-color .2s, box-shadow .2s;
+}
+input:focus, textarea:focus, select:focus { border-color:rgba(255,59,92,.5); box-shadow:0 0 0 3px rgba(255,59,92,.1); }
+textarea { resize:vertical; min-height:100px; }
+.form-row { margin-bottom:16px; }
+.form-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+@media(max-width:540px){ .form-grid{grid-template-columns:1fr;} }
+
+/* ─── BUTTONS ─── */
+.btn {
+  font-family:'Syne',sans-serif; font-weight:700; font-size:.85rem;
+  border:none; border-radius:10px; cursor:pointer; padding:12px 20px;
+  transition: all .2s; display:inline-flex; align-items:center; gap:7px;
+  letter-spacing:.03em;
+}
+.btn-primary     { background:linear-gradient(135deg,var(--accent),#c0392b); color:#fff; }
+.btn-primary:hover { transform:translateY(-1px); box-shadow:0 8px 24px rgba(255,59,92,.35); }
+.btn-teal        { background:linear-gradient(135deg,var(--accent3),#00a882); color:#000; }
+.btn-teal:hover  { transform:translateY(-1px); box-shadow:0 8px 24px rgba(0,212,170,.35); }
+.btn-orange      { background:linear-gradient(135deg,var(--accent2),#e67e22); color:#fff; }
+.btn-orange:hover{ transform:translateY(-1px); box-shadow:0 8px 24px rgba(255,140,0,.35); }
+.btn-outline     { background:transparent; border:1px solid var(--border); color:var(--text); }
+.btn-outline:hover{ border-color:var(--accent); color:var(--accent); }
+.btn-danger-full { background:linear-gradient(135deg,#c0392b,var(--accent)); color:#fff; width:100%; justify-content:center; font-size:1rem; padding:14px; }
+.btn-green       { background:linear-gradient(135deg,#27ae60,#2ecc71); color:#fff; }
+.btn-green:hover { transform:translateY(-1px); box-shadow:0 8px 24px rgba(46,204,113,.35); }
+.btn:active { transform:scale(.97); }
+.btn-row { display:flex; gap:10px; flex-wrap:wrap; margin-top:16px; }
+
+/* ─── HASH OUTPUT ─── */
+.hash-box {
+  background: var(--surface); border:1px solid var(--border); border-radius:10px;
+  padding:14px; margin-top:12px; display:none;
+}
+.hash-box.visible { display:block; }
+.hash-label { font-size:.7rem; font-weight:600; color:var(--muted); text-transform:uppercase; letter-spacing:.06em; margin-bottom:6px; }
+.hash-value { font-family:'JetBrains Mono',monospace; font-size:.78rem; color:var(--accent3); word-break:break-all; line-height:1.6; }
+.hash-copy-btn { margin-top:8px; font-size:.75rem; padding:6px 12px; }
+
+/* ─── FIR PREVIEW ─── */
+.fir-preview {
+  background: var(--surface); border:1px solid var(--border); border-radius:10px;
+  padding:20px; font-family:'JetBrains Mono',monospace; font-size:.78rem;
+  line-height:1.8; color:#cdd; white-space:pre-wrap; display:none; margin-top:16px;
+  max-height:400px; overflow-y:auto;
+}
+.fir-preview.visible { display:block; }
+
+/* ─── EVIDENCE LIST ─── */
+.evidence-list { margin-top:16px; display:flex; flex-direction:column; gap:8px; }
+.evidence-item {
+  background:var(--surface); border:1px solid var(--border); border-radius:10px;
+  padding:12px 14px; display:flex; align-items:flex-start; gap:12px;
+}
+.ev-icon { font-size:1.4rem; flex-shrink:0; margin-top:2px; }
+.ev-info { flex:1; min-width:0; }
+.ev-name { font-weight:600; font-size:.85rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.ev-hash { font-family:'JetBrains Mono',monospace; font-size:.68rem; color:var(--accent3); margin-top:2px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.ev-time { font-size:.7rem; color:var(--muted); margin-top:2px; }
+.ev-badge { font-size:.62rem; padding:2px 7px; border-radius:4px; margin-top:4px; display:inline-block; }
+.ev-badge.synced   { background:rgba(0,212,170,.12); color:var(--accent3); border:1px solid rgba(0,212,170,.2); }
+.ev-badge.pending  { background:rgba(255,140,0,.12);  color:var(--accent2); border:1px solid rgba(255,140,0,.2); }
+.ev-remove { background:none; border:none; color:var(--muted); cursor:pointer; font-size:1rem; padding:4px; transition:color .2s; flex-shrink:0; }
+.ev-remove:hover { color:var(--accent); }
+
+/* ─── STATUS BADGE ─── */
+.status-badge {
+  display:inline-flex; align-items:center; gap:5px;
+  font-size:.72rem; font-weight:600; padding:4px 10px;
+  border-radius:6px; font-family:'JetBrains Mono',monospace;
+}
+.badge-green  { background:rgba(0,212,170,.12);  color:var(--accent3); border:1px solid rgba(0,212,170,.2); }
+.badge-red    { background:rgba(255,59,92,.12);   color:var(--accent);  border:1px solid rgba(255,59,92,.2); }
+.badge-orange { background:rgba(255,140,0,.12);   color:var(--accent2); border:1px solid rgba(255,140,0,.2); }
+
+/* ─── FAKE CALL ─── */
+.fake-call-screen {
+  position:fixed; inset:0; z-index:999;
+  background:#111; display:none; flex-direction:column;
+  align-items:center; justify-content:space-between;
+  padding:60px 30px 80px;
+  animation: callIn .3s ease;
+}
+@keyframes callIn { from{opacity:0;transform:scale(.95)} to{opacity:1;transform:scale(1)} }
+.fake-call-screen.active { display:flex; }
+.call-bg-blur {
+  position:absolute; inset:0; z-index:0;
+  background:linear-gradient(160deg, #1a0a1a 0%, #0a0f1a 50%, #0a1a0f 100%);
+}
+.call-content { position:relative;z-index:1; text-align:center; }
+.call-avatar {
+  width:100px; height:100px; border-radius:50%;
+  background:linear-gradient(135deg,#2c3e50,#4a5568);
+  display:flex; align-items:center; justify-content:center;
+  font-size:2.8rem; margin:0 auto 20px;
+  box-shadow:0 0 0 4px rgba(255,255,255,.1), 0 0 40px rgba(0,212,170,.3);
+  animation: callPulse 2s ease-in-out infinite;
+}
+@keyframes callPulse { 0%,100%{box-shadow:0 0 0 4px rgba(255,255,255,.1),0 0 40px rgba(0,212,170,.3)} 50%{box-shadow:0 0 0 12px rgba(255,255,255,.05),0 0 60px rgba(0,212,170,.2)} }
+.call-name   { font-family:'Syne',sans-serif; font-size:1.8rem; font-weight:800; margin-bottom:6px; }
+.call-status { color:var(--muted); font-size:.9rem; margin-bottom:4px; }
+.call-timer  { font-family:'JetBrains Mono',monospace; font-size:1.1rem; color:var(--accent3); }
+.call-actions { position:relative;z-index:1; display:flex; gap:40px; align-items:center; }
+.call-btn {
+  width:64px; height:64px; border-radius:50%; border:none;
+  display:flex; align-items:center; justify-content:center;
+  font-size:1.4rem; cursor:pointer; transition:all .2s;
+}
+.call-btn:hover { transform:scale(1.1); }
+.call-btn-mute { background:rgba(255,255,255,.12); color:#fff; }
+.call-btn-end  { background:#e74c3c; color:#fff; width:72px;height:72px; font-size:1.6rem; }
+.call-btn-spkr { background:rgba(255,255,255,.12); color:#fff; }
+.call-caller-id { position:relative;z-index:1; font-family:'JetBrains Mono',monospace; font-size:.75rem; color:var(--muted); }
+
+/* ─── VOICE WAVEFORM ─── */
+.voice-waveform {
+  position:relative;z-index:1;
+  display:none; align-items:center; justify-content:center; gap:3px;
+  height:36px; margin: 10px 0;
+}
+.voice-waveform.active { display:flex; }
+.wave-bar {
+  width:4px; border-radius:2px;
+  background:var(--accent3);
+  animation: wavebar 0.6s ease-in-out infinite alternate;
+}
+.wave-bar:nth-child(1){height:8px;animation-delay:0s}
+.wave-bar:nth-child(2){height:18px;animation-delay:.08s}
+.wave-bar:nth-child(3){height:28px;animation-delay:.16s}
+.wave-bar:nth-child(4){height:20px;animation-delay:.24s}
+.wave-bar:nth-child(5){height:32px;animation-delay:.1s}
+.wave-bar:nth-child(6){height:14px;animation-delay:.18s}
+.wave-bar:nth-child(7){height:26px;animation-delay:.05s}
+.wave-bar:nth-child(8){height:10px;animation-delay:.22s}
+.wave-bar:nth-child(9){height:22px;animation-delay:.13s}
+.wave-bar:nth-child(10){height:8px;animation-delay:.3s}
+@keyframes wavebar { from{transform:scaleY(0.4);opacity:.6} to{transform:scaleY(1);opacity:1} }
+
+.muted-indicator {
+  position:relative;z-index:1;
+  display:none; align-items:center; gap:6px;
+  font-size:.75rem; color:var(--accent); font-weight:600;
+  background:rgba(255,59,92,.1); border:1px solid rgba(255,59,92,.2);
+  border-radius:20px; padding:5px 14px;
+}
+.muted-indicator.show { display:flex; }
+
+/* ─── CONTACT SETUP ─── */
+.contact-preview {
+  background:var(--surface); border:1px solid var(--border); border-radius:10px;
+  padding:14px; display:flex; align-items:center; gap:14px;
+}
+.contact-emoji { font-size:2rem; }
+.contact-detail { flex:1; }
+.contact-detail strong { font-size:.9rem; }
+.contact-detail small { color:var(--muted); font-size:.78rem; display:block; margin-top:2px; }
+
+/* ─── PROGRESS RING ─── */
+.progress-ring { position:relative; width:80px; height:80px; flex-shrink:0; }
+.progress-ring svg { transform:rotate(-90deg); }
+.ring-bg   { fill:none; stroke:var(--border); stroke-width:6; }
+.ring-fill { fill:none; stroke:var(--accent); stroke-width:6; stroke-linecap:round;
+  stroke-dasharray:220; stroke-dashoffset:220; transition:stroke-dashoffset .3s; }
+.ring-label { position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  font-family:'JetBrains Mono',monospace; font-size:1.1rem; font-weight:700; }
+
+/* ─── SCROLLBAR ─── */
+::-webkit-scrollbar { width:6px; }
+::-webkit-scrollbar-track { background:var(--surface); }
+::-webkit-scrollbar-thumb { background:var(--border); border-radius:3px; }
+
+/* ─── PAGE TITLES ─── */
+.page-title { font-family:'Syne',sans-serif; font-weight:800; font-size:1.6rem; margin-bottom:4px; }
+.page-sub   { color:var(--muted); font-size:.85rem; margin-bottom:24px; }
+
+/* ─── TOAST ─── */
+#toast {
+  position:fixed; bottom:30px; left:50%; transform:translateX(-50%) translateY(20px);
+  background:var(--card); border:1px solid var(--border); border-radius:10px;
+  padding:12px 20px; font-size:.85rem; font-weight:600;
+  opacity:0; transition:all .3s; z-index:9999; white-space:nowrap;
+  box-shadow: 0 8px 30px rgba(0,0,0,.5);
+}
+#toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
+
+/* ─── INCIDENT TYPE CHIPS ─── */
+.chip-group { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:16px; }
+.chip {
+  background:var(--surface); border:1px solid var(--border); border-radius:20px;
+  padding:6px 14px; font-size:.78rem; font-weight:600; cursor:pointer; transition:all .2s;
+  color:var(--muted);
+}
+.chip.selected { background:rgba(255,59,92,.12); border-color:rgba(255,59,92,.4); color:var(--accent); }
+
+/* ─── MISC ─── */
+.divider    { border:none; border-top:1px solid var(--border); margin:20px 0; }
+.stat-row   { display:flex; gap:12px; margin-bottom:20px; flex-wrap:wrap; }
+.stat-card  { background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:14px 18px; flex:1; min-width:100px; }
+.stat-val   { font-family:'Syne',sans-serif; font-weight:800; font-size:1.5rem; }
+.stat-lbl   { font-size:.72rem; color:var(--muted); margin-top:2px; }
+.section-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:6px; flex-wrap:wrap; gap:8px; }
+
+/* ─── VOICE SCRIPT CARD ─── */
+.script-lines { display:flex; flex-direction:column; gap:6px; margin-top:10px; }
+.script-line {
+  background:var(--surface); border:1px solid var(--border); border-radius:8px;
+  padding:8px 14px; font-size:.82rem; color:var(--muted); cursor:pointer;
+  transition: border-color .2s, color .2s;
+}
+.script-line:hover { border-color:var(--accent3); color:var(--text); }
+.script-line.speaking { border-color:var(--accent3); color:var(--accent3); background:rgba(0,212,170,.06); }
+
+</style>
+</head>
+<body>
+
+<!-- ─── HEADER ─── -->
+<header>
+  <div class="logo">
+    <div class="logo-shield">🛡</div>
+    Safe<span>Her</span>
+  </div>
+  <a href="home.html" style="color:var(--muted);text-decoration:none;font-size:.82rem;border:1px solid var(--border);padding:5px 13px;border-radius:8px;transition:border-color .2s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">← Home</a>
+  <div id="firebase-status" class="connecting">⟳ Connecting…</div>
+</header>
+
+<!-- ─── NAV TABS ─── -->
+<nav class="nav-tabs">
+  <button class="tab-btn active" onclick="switchTab('evidence')" id="tab-evidence">
+    <span class="tab-icon">🔒</span> Protect My Proof
+  </button>
+  <button class="tab-btn" onclick="switchTab('incident')" id="tab-incident">
+    <span class="tab-icon">📋</span> Incident Report
+  </button>
+  <button class="tab-btn" onclick="switchTab('fir')" id="tab-fir">
+    <span class="tab-icon">📄</span> Auto FIR
+  </button>
+  <button class="tab-btn" onclick="switchTab('fakecall')" id="tab-fakecall">
+    <span class="tab-icon">📞</span> Fake Call
+  </button>
+</nav>
+
+<main>
+
+  <!-- ══════════════════ EVIDENCE HASHING ══════════════════ -->
+  <section id="section-evidence" class="section active">
+    <div class="page-title">Protect My Proof</div>
+    <div class="page-sub">Save photos, messages, or your location as tamper-proof proof — so no one can claim it was edited later.</div>
+
+    <div class="stat-row" id="ev-stats">
+      <div class="stat-card"><div class="stat-val" id="stat-count">0</div><div class="stat-lbl">Items Saved</div></div>
+      <div class="stat-card"><div class="stat-val" id="stat-size">0 KB</div><div class="stat-lbl">Total Size</div></div>
+      <div class="stat-card"><div class="stat-val" id="stat-time">—</div><div class="stat-lbl">Last Saved</div></div>
+    </div>
+
+    <div class="card accent-teal">
+      <div class="card-title"><div class="dot dot-teal"></div> Save a Photo, Audio, or Document</div>
+      <div class="form-row">
+        <label>Choose your file (photo, audio recording, document)</label>
+        <input type="file" id="ev-file" accept="*/*">
+      </div>
+      <div class="form-row">
+        <label>Label this proof — what is this file?</label>
+        <input type="text" id="ev-label" placeholder="e.g. Screenshot of threatening message, 25 June 2026">
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-teal" onclick="hashFile()">🔒 Seal & Save This File</button>
+      </div>
+      <div class="hash-box" id="hash-result">
+        <div class="hash-label">✅ File Sealed Successfully</div>
+        <div class="hash-value" id="hash-display"></div>
+        <div style="margin-top:6px;font-size:.72rem;color:var(--muted)">⏱ Saved at: <span id="hash-timestamp"></span></div>
+        <div class="btn-row">
+          <button class="btn btn-outline hash-copy-btn" onclick="copyHash()">📋 Copy Seal Code</button>
+          <button class="btn btn-teal hash-copy-btn" onclick="saveEvidence()">💾 Add to My Proofs</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card accent-orange">
+      <div class="card-title"><div class="dot dot-orange"></div> Save My Location as Proof</div>
+      <div style="font-size:.82rem;color:var(--muted);margin-bottom:14px;">
+        Saves your exact GPS location from when you triggered SOS. Useful to prove where you were during an incident.
+      </div>
+      <div id="sos-loc-preview" style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:14px;font-size:.82rem;color:var(--muted);">
+        No SOS location found. Trigger SOS first to capture GPS coordinates.
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-orange" onclick="hashSOSLocation()">📍 Save This Location</button>
+        <button class="btn btn-outline" onclick="refreshSOSLocation()" style="font-size:.78rem;padding:10px 14px;">🔄 Refresh</button>
+      </div>
+      <div class="hash-box" id="loc-hash-result">
+        <div class="hash-label">✅ Location Sealed Successfully</div>
+        <div class="hash-value" id="loc-hash-display"></div>
+        <div style="margin-top:6px;font-size:.72rem;color:var(--muted)">⏱ Saved at: <span id="loc-hash-timestamp"></span></div>
+        <div class="btn-row">
+          <button class="btn btn-outline hash-copy-btn" onclick="copyLocHash()">📋 Copy Seal Code</button>
+          <button class="btn btn-orange hash-copy-btn" onclick="saveLocEvidence()">💾 Add to My Proofs</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card accent-red">
+      <div class="form-row">
+        <label>Paste a threatening message, or write what happened in your own words</label>
+        <textarea id="ev-text" placeholder="e.g. He said 'I know where you live' on 25 June at 3pm…"></textarea>
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-primary" onclick="hashText()">🔒 Seal & Save This Statement</button>
+      </div>
+      <div class="hash-box" id="text-hash-result">
+        <div class="hash-label">✅ Statement Sealed Successfully</div>
+        <div class="hash-value" id="text-hash-display"></div>
+        <div style="margin-top:6px;font-size:.72rem;color:var(--muted)">⏱ Saved at: <span id="text-hash-timestamp"></span></div>
+        <div class="btn-row">
+          <button class="btn btn-outline hash-copy-btn" onclick="copyTextHash()">📋 Copy Seal Code</button>
+          <button class="btn btn-primary hash-copy-btn" onclick="saveTextEvidence()">💾 Add to My Proofs</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card accent-orange">
+      <div class="section-header">
+        <div class="card-title" style="margin-bottom:0"><div class="dot dot-orange"></div> My Saved Proofs</div>
+        <button class="btn btn-outline" style="font-size:.75rem;padding:6px 12px" onclick="clearLog()">🗑 Clear All</button>
+      </div>
+      <div class="evidence-list" id="evidence-list">
+        <div style="color:var(--muted);font-size:.85rem;text-align:center;padding:20px;">Nothing saved yet. Seal a file, location, or statement above.</div>
+      </div>
+      <div class="btn-row" style="margin-top:12px">
+        <button class="btn btn-orange" onclick="exportLog()">📥 Download My Proof File</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══════════════════ INCIDENT REPORT ══════════════════ -->
+  <section id="section-incident" class="section">
+    <div class="page-title">Incident Report</div>
+    <div class="page-sub">Document the incident in detail. This data will also fill the Auto FIR.</div>
+
+    <div class="card accent-red">
+      <div class="card-title"><div class="dot dot-red"></div> Incident Type</div>
+      <div class="chip-group" id="chip-group">
+        <div class="chip" onclick="selectChip(this,'Harassment')">😠 Harassment</div>
+        <div class="chip" onclick="selectChip(this,'Stalking')">👁 Stalking</div>
+        <div class="chip" onclick="selectChip(this,'Physical Assault')">🚨 Physical Assault</div>
+        <div class="chip" onclick="selectChip(this,'Eve Teasing')">⚠️ Eve Teasing</div>
+        <div class="chip" onclick="selectChip(this,'Online Threat')">💬 Online Threat</div>
+        <div class="chip" onclick="selectChip(this,'Theft')">🎒 Theft</div>
+        <div class="chip" onclick="selectChip(this,'Other')">🔖 Other</div>
+      </div>
+      <div class="form-row">
+        <label>Or specify custom incident type</label>
+        <input type="text" id="incident-type" placeholder="Describe incident type…">
+      </div>
+    </div>
+
+    <div class="card accent-orange">
+      <div class="card-title"><div class="dot dot-orange"></div> Victim & Location</div>
+      <div class="form-grid">
+        <div class="form-row">
+          <label>Your Full Name</label>
+          <input type="text" id="victim-name" placeholder="Full name">
+        </div>
+        <div class="form-row">
+          <label>Phone Number</label>
+          <input type="text" id="victim-phone" placeholder="+91 XXXXXXXXXX">
+        </div>
+        <div class="form-row">
+          <label>Date of Incident</label>
+          <input type="text" id="incident-date" placeholder="DD/MM/YYYY">
+        </div>
+        <div class="form-row">
+          <label>Time of Incident</label>
+          <input type="text" id="incident-time" placeholder="HH:MM AM/PM">
+        </div>
+      </div>
+      <div class="form-row">
+        <label>Location of Incident</label>
+        <input type="text" id="incident-location" placeholder="Full address or landmark">
+      </div>
+      <button class="btn btn-outline" style="font-size:.78rem;padding:8px 14px" onclick="getLocation()">📍 Auto-detect my location</button>
+    </div>
+
+    <div class="card accent-teal">
+      <div class="card-title"><div class="dot dot-teal"></div> Suspect Description</div>
+      <div class="form-grid">
+        <div class="form-row">
+          <label>Suspect Name (if known)</label>
+          <input type="text" id="suspect-name" placeholder="Name or 'Unknown'">
+        </div>
+        <div class="form-row">
+          <label>Physical Description</label>
+          <input type="text" id="suspect-desc" placeholder="Height, build, clothing…">
+        </div>
+      </div>
+      <div class="form-row">
+        <label>Vehicle (if any)</label>
+        <input type="text" id="suspect-vehicle" placeholder="Colour, make, plate number">
+      </div>
+    </div>
+
+    <div class="card accent-purple">
+      <div class="card-title"><div class="dot dot-purple"></div> Incident Description</div>
+      <div class="form-row">
+        <textarea id="incident-desc" placeholder="Describe what happened in as much detail as possible. Include sequence of events, what was said, weapons if any, witnesses, etc." style="min-height:140px;"></textarea>
+      </div>
+      <div class="form-row">
+        <label>Witness Name & Contact</label>
+        <input type="text" id="witness" placeholder="Name, phone (optional)">
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-primary" onclick="saveReport()">💾 Save Report</button>
+        <button class="btn btn-teal" onclick="goToFIR()">📄 Generate FIR Draft →</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══════════════════ AUTO FIR ══════════════════ -->
+  <section id="section-fir" class="section">
+    <div class="page-title">Auto FIR Draft</div>
+    <div class="page-sub">Auto-generated FIR based on your incident report. Download or copy to file officially.</div>
+
+    <div class="card accent-teal">
+      <div class="card-title"><div class="dot dot-teal"></div> FIR Generation</div>
+      <div class="form-grid">
+        <div class="form-row">
+          <label>Police Station</label>
+          <input type="text" id="police-station" placeholder="e.g. Anna Nagar PS, Chennai">
+        </div>
+        <div class="form-row">
+          <label>District</label>
+          <input type="text" id="district" placeholder="e.g. Kallakurichi">
+        </div>
+      </div>
+      <div class="form-row">
+        <label>Applicable IPC Sections (auto-suggested)</label>
+        <input type="text" id="ipc-sections" placeholder="e.g. 354, 509, 366 IPC">
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-teal" onclick="generateFIR()">📄 Generate FIR Draft</button>
+        <button class="btn btn-outline" onclick="suggestIPC()">⚖️ Suggest IPC Sections</button>
+      </div>
+    </div>
+
+    <div class="card accent-orange">
+      <div class="card-title"><div class="dot dot-orange"></div> FIR Preview</div>
+      <div id="fir-status" style="color:var(--muted);font-size:.85rem;padding:10px 0;">Fill the incident report first, then click Generate.</div>
+      <pre class="fir-preview" id="fir-preview"></pre>
+      <div class="btn-row" id="fir-actions" style="display:none">
+        <button class="btn btn-orange" onclick="downloadFIR()">⬇️ Download FIR (.txt)</button>
+        <button class="btn btn-outline" onclick="copyFIR()">📋 Copy to Clipboard</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══════════════════ FAKE CALL ══════════════════ -->
+  <section id="section-fakecall" class="section">
+    <div class="page-title">Fake Call</div>
+    <div class="page-sub">Trigger a realistic incoming call screen to escape dangerous situations discreetly.</div>
+
+    <div class="card accent-teal">
+      <div class="card-title"><div class="dot dot-teal"></div> Caller Setup</div>
+      <div class="form-grid">
+        <div class="form-row">
+          <label>Caller Name (display)</label>
+          <input type="text" id="caller-name" placeholder="e.g. Mom, Officer Priya">
+        </div>
+        <div class="form-row">
+          <label>Caller Number</label>
+          <input type="text" id="caller-number" placeholder="+91 98765 43210">
+        </div>
+      </div>
+      <div class="form-row">
+        <label>Caller Emoji / Avatar</label>
+        <div class="chip-group" id="emoji-group">
+          <div class="chip selected" onclick="selectEmoji(this,'👩')">👩 Mom</div>
+          <div class="chip" onclick="selectEmoji(this,'👨')">👨 Dad</div>
+          <div class="chip" onclick="selectEmoji(this,'👮')">👮 Police</div>
+          <div class="chip" onclick="selectEmoji(this,'🧑‍⚕️')">🧑‍⚕️ Doctor</div>
+          <div class="chip" onclick="selectEmoji(this,'🤝')">🤝 Boss</div>
+          <div class="chip" onclick="selectEmoji(this,'👩‍💼')">👩‍💼 Friend</div>
+        </div>
+      </div>
+      <div class="contact-preview" id="caller-preview">
+        <div class="contact-emoji" id="preview-emoji">👩</div>
+        <div class="contact-detail">
+          <strong id="preview-name">Mom</strong>
+          <small id="preview-number">+91 98765 43210</small>
+        </div>
+        <div class="status-badge badge-green">● Incoming</div>
+      </div>
+    </div>
+
+    <div class="card accent-orange">
+      <div class="card-title"><div class="dot dot-orange"></div> Trigger Options</div>
+      <div class="form-row">
+        <label>Voice Style During Call</label>
+        <div class="chip-group" id="voice-chip-group">
+          <div class="chip selected" onclick="selectVoice(this,'female')">👩 Female Voice</div>
+          <div class="chip" onclick="selectVoice(this,'male')">👨 Male Voice</div>
+          <div class="chip" onclick="selectVoice(this,'elder')">👴 Elder Voice</div>
+          <div class="chip" onclick="selectVoice(this,'none')">🔇 No Voice</div>
+        </div>
+      </div>
+      <div class="form-grid">
+        <div class="form-row">
+          <label>Delay Before Ring (seconds)</label>
+          <input type="text" id="call-delay" placeholder="e.g. 5" value="3">
+        </div>
+        <div class="form-row">
+          <label>Ring Duration (seconds)</label>
+          <input type="text" id="ring-duration" placeholder="e.g. 30" value="30">
+        </div>
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-orange" onclick="scheduleFakeCall()">⏱ Schedule Fake Call</button>
+        <button class="btn btn-primary" onclick="triggerFakeCallNow()">📞 Trigger NOW</button>
+      </div>
+      <div id="countdown-display" style="display:none;margin-top:12px;text-align:center">
+        <div style="display:flex;align-items:center;justify-content:center;gap:16px">
+          <div class="progress-ring">
+            <svg width="80" height="80" viewBox="0 0 80 80">
+              <circle class="ring-bg"   cx="40" cy="40" r="35"/>
+              <circle class="ring-fill" id="ring-fill" cx="40" cy="40" r="35"/>
+            </svg>
+            <div class="ring-label" id="ring-label">—</div>
+          </div>
+          <div>
+            <div style="font-family:'Syne',sans-serif;font-weight:700;font-size:1rem">Call incoming in…</div>
+            <div style="color:var(--muted);font-size:.8rem;margin-top:4px">Stay calm, act natural</div>
+            <button class="btn btn-outline" style="margin-top:10px;font-size:.75rem;padding:6px 12px" onclick="cancelFakeCall()">✕ Cancel</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 🎙️ Voice Script Preview (so user knows what will be spoken) -->
+    <div class="card accent-purple">
+      <div class="card-title"><div class="dot dot-purple"></div> What the caller will say</div>
+      <div style="font-size:.8rem;color:var(--muted);margin-bottom:10px">The selected voice will speak these lines in sequence during your call. Uses your device's built-in text-to-speech.</div>
+      <div class="script-lines" id="script-lines-female">
+        <div class="script-line" data-idx="0">💬 "Hello? Are you okay?"</div>
+        <div class="script-line" data-idx="1">💬 "Where are you right now?"</div>
+        <div class="script-line" data-idx="2">💬 "I was getting worried, you didn't call."</div>
+        <div class="script-line" data-idx="3">💬 "Should I come pick you up?"</div>
+        <div class="script-line" data-idx="4">💬 "Just stay calm, I'm on my way."</div>
+        <div class="script-line" data-idx="5">💬 "Are you safe? Tell me where you are."</div>
+        <div class="script-line" data-idx="6">💬 "Just walk to a lit area, I'll be there in ten minutes."</div>
+        <div class="script-line" data-idx="7">💬 "Do you need me to call the police?"</div>
+        <div class="script-line" data-idx="8">💬 "Okay, just stay on the line with me."</div>
+      </div>
+    </div>
+
+    <div class="card accent-red">
+      <div class="card-title"><div class="dot dot-red"></div> Quick Tips</div>
+      <ul style="color:var(--muted);font-size:.83rem;line-height:2;list-style:none;padding:0">
+        <li>📱 Hold phone naturally and pretend you need to take the call</li>
+        <li>🗣️ The voice will speak real sentences — put it on speaker for full effect</li>
+        <li>🚶 Use call screen to walk away from uncomfortable situation</li>
+        <li>⏱ Set delay if you need a minute before the "call" arrives</li>
+        <li>👮 Set caller to "Police" or "Officer" for deterrence</li>
+        <li>🔊 Toggle speaker on the call screen to increase voice volume</li>
+      </ul>
+    </div>
+  </section>
+
+</main>
+
+<!-- ─── FAKE CALL SCREEN ─── -->
+<div class="fake-call-screen" id="fake-call-screen">
+  <div class="call-bg-blur"></div>
+
+  <div class="call-content">
+    <div class="call-avatar" id="call-avatar">👩</div>
+    <div class="call-name"   id="call-name-display">Mom</div>
+    <div class="call-status" id="call-status-text">Incoming Call…</div>
+    <div class="call-timer"  id="call-timer-display" style="display:none">00:00</div>
+  </div>
+
+  <!-- Voice waveform animation -->
+  <div class="voice-waveform" id="voice-waveform">
+    <div class="wave-bar"></div><div class="wave-bar"></div><div class="wave-bar"></div>
+    <div class="wave-bar"></div><div class="wave-bar"></div><div class="wave-bar"></div>
+    <div class="wave-bar"></div><div class="wave-bar"></div><div class="wave-bar"></div>
+    <div class="wave-bar"></div>
+  </div>
+  <div class="muted-indicator" id="muted-indicator">🎙️ Muted</div>
+
+  <div style="position:relative;z-index:1;text-align:center">
+    <div style="display:flex;gap:30px;justify-content:center;align-items:center;margin-bottom:20px" id="call-btn-row">
+      <div style="text-align:center" id="mute-btn-wrap">
+        <button class="call-btn call-btn-mute" id="btn-mute" onclick="toggleMute()">🎙️</button>
+        <div style="color:var(--muted);font-size:.72rem;margin-top:8px" id="mute-label">Mute</div>
+      </div>
+      <div style="text-align:center" id="decline-btn-wrap">
+        <button class="call-btn" style="background:#e74c3c;color:#fff;width:72px;height:72px;font-size:1.6rem;" id="btn-decline" onclick="declineCall()">📵</button>
+        <div style="color:var(--muted);font-size:.72rem;margin-top:8px">Decline</div>
+      </div>
+      <div style="text-align:center" id="accept-btn-wrap">
+        <button class="call-btn" style="background:#27ae60;color:#fff;width:72px;height:72px;font-size:1.6rem;" id="btn-accept" onclick="acceptCall()">📞</button>
+        <div style="color:var(--muted);font-size:.72rem;margin-top:8px">Accept</div>
+      </div>
+      <div style="text-align:center" id="spkr-btn-wrap">
+        <button class="call-btn call-btn-spkr" id="btn-spkr" onclick="toggleSpeaker()">🔊</button>
+        <div style="color:var(--muted);font-size:.72rem;margin-top:8px" id="spkr-label">Speaker</div>
+      </div>
+    </div>
+    <div class="call-caller-id" id="call-number-display">+91 98765 43210</div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div id="toast"></div>
+
+<!-- Scripts — order matters: firebase.js first, then app.js -->
+<script>
+// ─── firebase.js — SafeHer Firebase Integration ───
+// Uses Firebase v9 compat (CDN) — no build step needed for GitHub Pages
+
+// ──────────────────────────────────────────────────────────
+//  🔧 REPLACE these values with your own Firebase project.
+//  Go to: https://console.firebase.google.com
+//  → Project Settings → Your apps → Web app → SDK setup
+// ──────────────────────────────────────────────────────────
+const firebaseConfig = {
+  apiKey: "AIzaSyDrIm9fyKKMGsri8U6PJ3nh7Etp-cB07p8",
+  authDomain: "safeher-app-ebd6e.firebaseapp.com",
+  projectId: "safeher-app-ebd6e",
+  storageBucket: "safeher-app-ebd6e.firebasestorage.app",
+  messagingSenderId: "815594120308",
+  appId: "1:815594120308:web:f0acddd85edb2895f25d21"
+};
+
+// ─── Internal state ───
+let db = null;
+let anonymousUID = null;     // localStorage-persisted random UID per device
+let firebaseReady = false;
+
+// ══════════════════════════════════════════════════════════
+//  🔐 E2E LOCATION ENCRYPTION (AES-256 via CryptoJS)
+//  Key is derived from the user's UID — only their device
+//  can decrypt. Firestore & localStorage store ciphertext only.
+// ══════════════════════════════════════════════════════════
+let _encKey = null;
+
+function setEncryptionKey(uid) {
+  // Derive a 256-bit key from UID using SHA-256
+  _encKey = CryptoJS.SHA256(uid + '_safeher_loc_v1').toString();
+}
+
+function encryptLocation(locationObj) {
+  if (!_encKey) return null;
+  try {
+    const plaintext = JSON.stringify(locationObj);
+    const encrypted = CryptoJS.AES.encrypt(plaintext, _encKey).toString();
+    return encrypted;
+  } catch (e) {
+    console.error('Encryption failed:', e);
+    return null;
+  }
+}
+
+function decryptLocation(ciphertext) {
+  if (!_encKey || !ciphertext) return null;
+  try {
+    const bytes = CryptoJS.AES.decrypt(ciphertext, _encKey);
+    const plaintext = bytes.toString(CryptoJS.enc.Utf8);
+    if (!plaintext) return null;
+    return JSON.parse(plaintext);
+  } catch (e) {
+    console.error('Decryption failed:', e);
+    return null;
+  }
+}
+
+function saveLocationEncrypted(locationObj) {
+  const cipher = encryptLocation(locationObj);
+  if (cipher) {
+    localStorage.setItem('safeher_sos_location', cipher);
+  }
+}
+
+function loadLocationDecrypted() {
+  const raw = localStorage.getItem('safeher_sos_location');
+  if (!raw) return null;
+  // Try AES decrypt if key is ready
+  if (_encKey) {
+    const decrypted = decryptLocation(raw);
+    if (decrypted) return decrypted;
+  }
+  // Fallback: try plain JSON (unencrypted or pre-key data)
+  try { return JSON.parse(raw); } catch(e) { return null; }
+}
+
+window.SafeHerCrypto = { encryptLocation, decryptLocation, saveLocationEncrypted, loadLocationDecrypted, setEncryptionKey };
+
+// ─── Boot ───
+function initFirebase() {
+  const statusEl = document.getElementById('firebase-status');
+  statusEl.className = 'connecting';
+  statusEl.textContent = '⟳ Connecting…';
+
+  try {
+    firebase.initializeApp(firebaseConfig);
+    db = firebase.firestore();
+
+    // Anonymous device ID (no Auth required — simpler for GitHub Pages deploy)
+    anonymousUID = localStorage.getItem('safeher_uid');
+    if (!anonymousUID) {
+      anonymousUID = 'device_' + Date.now() + '_' + Math.random().toString(36).slice(2, 9);
+      localStorage.setItem('safeher_uid', anonymousUID);
+    }
+
+    firebaseReady = true;
+    statusEl.className = 'connected';
+    statusEl.textContent = '✓ Cloud Sync ON 🔐';
+
+    // Auth check — redirect if not logged in
+    firebase.auth().onAuthStateChanged(function(user) {
+      if (!user) { window.location.href = 'index.html'; }
+    });
+
+    // Load saved evidence from Firestore on boot
+    loadEvidenceFromFirestore();
+
+    // Wait for auth to resolve before setting encryption key
+    // currentUser is null immediately — must use onAuthStateChanged
+    firebase.auth().onAuthStateChanged(function(user) {
+      if (user) {
+        // Use the same UID that sos.html used to encrypt
+        setEncryptionKey(user.uid);
+      } else {
+        // Not logged in — redirect
+        window.location.href = 'index.html';
+        return;
+      }
+      // Refresh location display now that we have the right key
+      refreshSOSLocation();
+    });
+
+  } catch (err) {
+    console.error('Firebase init failed:', err);
+    statusEl.className = 'error';
+    statusEl.textContent = '✕ Offline Mode';
+    firebaseReady = false;
+  }
+}
+
+// ─── Save a single evidence item to Firestore ───
+async function saveEvidenceToFirestore(item) {
+  if (!firebaseReady || !db) return false;
+  try {
+    await db
+      .collection('safeher_evidence')
+      .doc(anonymousUID)
+      .collection('items')
+      .add({
+        ...item,
+        savedAt: firebase.firestore.FieldValue.serverTimestamp()
+      });
+    return true;
+  } catch (err) {
+    console.error('Firestore save failed:', err);
+    return false;
+  }
+}
+
+// ─── Load evidence from Firestore for this device ───
+async function loadEvidenceFromFirestore() {
+  if (!firebaseReady || !db) return;
+  try {
+    const snapshot = await db
+      .collection('safeher_evidence')
+      .doc(anonymousUID)
+      .collection('items')
+      .orderBy('savedAt', 'asc')
+      .get();
+
+    if (snapshot.empty) return;
+
+    snapshot.forEach(doc => {
+      const data = doc.data();
+      // Avoid duplicates on reload
+      const alreadyIn = window.evidenceLog.some(e => e.hash === data.hash);
+      if (!alreadyIn) {
+        window.evidenceLog.push({ ...data, firestoreId: doc.id, synced: true });
+      }
+    });
+    window.renderLog();
+    window.updateStats(0);  // recalculate counts
+  } catch (err) {
+    console.error('Firestore load failed:', err);
+  }
+}
+
+// ─── Save incident report to Firestore ───
+async function saveIncidentToFirestore(reportData) {
+  if (!firebaseReady || !db) return false;
+  try {
+    await db
+      .collection('safeher_incidents')
+      .doc(anonymousUID)
+      .collection('reports')
+      .add({
+        ...reportData,
+        savedAt: firebase.firestore.FieldValue.serverTimestamp()
+      });
+    return true;
+  } catch (err) {
+    console.error('Firestore incident save failed:', err);
+    return false;
+  }
+}
+
+// ─── Delete an evidence item from Firestore ───
+async function deleteEvidenceFromFirestore(firestoreId) {
+  if (!firebaseReady || !db || !firestoreId) return;
+  try {
+    await db
+      .collection('safeher_evidence')
+      .doc(anonymousUID)
+      .collection('items')
+      .doc(firestoreId)
+      .delete();
+  } catch (err) {
+    console.error('Firestore delete failed:', err);
+  }
+}
+
+// ─── Expose to window for app.js ───
+window.firebaseHelpers = {
+  isReady: () => firebaseReady,
+  saveEvidence: saveEvidenceToFirestore,
+  saveIncident: saveIncidentToFirestore,
+  deleteEvidence: deleteEvidenceFromFirestore,
+};
+
+</script>
+<script>
+// ─── app.js — SafeHer Main Logic ───
+
+// ─── GLOBAL STATE ───
+window.evidenceLog = [];
+let currentFileHash = '';
+let currentTextHash = '';
+let selectedEmoji    = '👩';
+let selectedVoiceStyle = 'female';
+let callCountdownTimer = null;
+let callActiveTimer    = null;
+let callSeconds  = 0;
+let fakeCallActive = false;
+let isMuted   = false;
+let isSpeaker = false;
+let totalSize = 0;
+
+// Web Speech API state
+let speechSynth   = window.speechSynthesis || null;
+let speechUtterance = null;
+let speechLoopTimer = null;
+let availableVoices = [];
+
+// ─────────────────────────────────────────────────────────
+//  BOOT
+// ─────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  const now = new Date();
+  document.getElementById('incident-date').value = now.toLocaleDateString('en-GB');
+  document.getElementById('incident-time').value = now.toLocaleTimeString('en-US', {hour:'2-digit', minute:'2-digit'});
+  updateCallerPreview();
+
+  // Load voices for Speech API
+  if (speechSynth) {
+    availableVoices = speechSynth.getVoices();
+    speechSynth.onvoiceschanged = () => { availableVoices = speechSynth.getVoices(); };
+  }
+
+  // Boot Firebase (defined in firebase.js)
+  if (typeof initFirebase === 'function') initFirebase();
+
+  // Load SOS location preview in Evidence Hashing tab
+  refreshSOSLocation();
+});
+
+// ─── TAB SWITCHING ───
+window.switchTab = function(name) {
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('section-' + name).classList.add('active');
+  document.getElementById('tab-' + name).classList.add('active');
+};
+
+// ─────────────────────────────────────────────────────────
+//  EVIDENCE HASHING
+// ─────────────────────────────────────────────────────────
+window.hashFile = async function() {
+  const fileInput = document.getElementById('ev-file');
+  if (!fileInput.files.length) return toast('⚠️ Please select a file first.');
+  const file = fileInput.files[0];
+  const arrayBuffer = await file.arrayBuffer();
+  const wordArray = CryptoJS.lib.WordArray.create(arrayBuffer);
+  const hash = CryptoJS.SHA256(wordArray).toString();
+  currentFileHash = hash;
+  document.getElementById('hash-display').textContent = hash;
+  document.getElementById('hash-timestamp').textContent = new Date().toLocaleString();
+  document.getElementById('hash-result').classList.add('visible');
+  toast('✅ SHA-256 hash generated!');
+};
+
+window.hashText = function() {
+  const text = document.getElementById('ev-text').value.trim();
+  if (!text) return toast('⚠️ Please enter some text first.');
+  const hash = CryptoJS.SHA256(text).toString();
+  currentTextHash = hash;
+  document.getElementById('text-hash-display').textContent = hash;
+  document.getElementById('text-hash-timestamp').textContent = new Date().toLocaleString();
+  document.getElementById('text-hash-result').classList.add('visible');
+  toast('✅ Text hashed successfully!');
+};
+
+window.copyHash     = () => { navigator.clipboard.writeText(currentFileHash); toast('📋 Hash copied!'); };
+window.copyTextHash = () => { navigator.clipboard.writeText(currentTextHash); toast('📋 Hash copied!'); };
+
+window.saveEvidence = async function() {
+  if (!currentFileHash) return;
+  const file  = document.getElementById('ev-file').files[0];
+  const label = document.getElementById('ev-label').value || file.name;
+  const item  = { type:'file', name:label, hash:currentFileHash, size:file.size, time:new Date().toLocaleString(), synced:false };
+  addToLog(item);
+
+  // 🔥 Sync to Firestore
+  if (window.firebaseHelpers && window.firebaseHelpers.isReady()) {
+    const ok = await window.firebaseHelpers.saveEvidence(item);
+    if (ok) {
+      window.evidenceLog[window.evidenceLog.length-1].synced = true;
+      renderLog();
+      toast('💾 Saved & synced to cloud ☁️');
+    } else {
+      toast('💾 Saved locally (offline)');
+    }
+  } else {
+    toast('💾 Saved to evidence log!');
+  }
+};
+
+window.saveTextEvidence = async function() {
+  if (!currentTextHash) return;
+  const text = document.getElementById('ev-text').value.trim().substring(0,40) + '…';
+  const item = { type:'text', name:'Text Statement: '+text, hash:currentTextHash, size:document.getElementById('ev-text').value.length, time:new Date().toLocaleString(), synced:false };
+  addToLog(item);
+
+  if (window.firebaseHelpers && window.firebaseHelpers.isReady()) {
+    const ok = await window.firebaseHelpers.saveEvidence(item);
+    if (ok) {
+      window.evidenceLog[window.evidenceLog.length-1].synced = true;
+      renderLog();
+      toast('💾 Saved & synced to cloud ☁️');
+    } else {
+      toast('💾 Saved locally (offline)');
+    }
+  } else {
+    toast('💾 Saved to evidence log!');
+  }
+};
+
+function addToLog(item) {
+  window.evidenceLog.push(item);
+  renderLog();
+  updateStats(item.size || 0);
+}
+
+window.renderLog = function() {
+  const list = document.getElementById('evidence-list');
+  if (!window.evidenceLog.length) {
+    list.innerHTML = '<div style="color:var(--muted);font-size:.85rem;text-align:center;padding:20px;">No evidence hashed yet.</div>';
+    return;
+  }
+  list.innerHTML = window.evidenceLog.map((ev, i) => `
+    <div class="evidence-item">
+      <div class="ev-icon">${ev.type === 'file' ? '📁' : '📝'}</div>
+      <div class="ev-info">
+        <div class="ev-name">${ev.name}</div>
+        <div class="ev-hash">${ev.hash}</div>
+        <div class="ev-time">🕐 ${ev.time} · ${ev.type === 'file' ? (ev.size/1024).toFixed(1)+' KB' : ev.size+' chars'}</div>
+        <span class="ev-badge ${ev.synced ? 'synced' : 'pending'}">${ev.synced ? '☁️ Cloud Synced' : '⏳ Local Only'}</span>
+      </div>
+      <button class="ev-remove" onclick="removeEvidence(${i})">✕</button>
+    </div>
+  `).join('');
+};
+
+window.updateStats = function(size) {
+  totalSize += size;
+  document.getElementById('stat-count').textContent = window.evidenceLog.length;
+  document.getElementById('stat-size').textContent  = totalSize > 1024*1024 ? (totalSize/1024/1024).toFixed(1)+' MB' : (totalSize/1024).toFixed(1)+' KB';
+  document.getElementById('stat-time').textContent  = new Date().toLocaleTimeString();
+};
+
+window.removeEvidence = async function(i) {
+  const item = window.evidenceLog[i];
+  if (item && item.firestoreId && window.firebaseHelpers) {
+    await window.firebaseHelpers.deleteEvidence(item.firestoreId);
+  }
+  window.evidenceLog.splice(i, 1);
+  renderLog();
+};
+
+window.clearLog = function() {
+  if (!window.evidenceLog.length) return;
+  window.evidenceLog = [];
+  totalSize = 0;
+  renderLog();
+  document.getElementById('stat-count').textContent = '0';
+  document.getElementById('stat-size').textContent  = '0 KB';
+  document.getElementById('stat-time').textContent  = '—';
+  toast('🗑 Log cleared.');
+};
+
+window.exportLog = function() {
+  if (!window.evidenceLog.length) return toast('⚠️ No evidence to export.');
+  let txt = `SAFEHer — EVIDENCE HASH LOG\nExported: ${new Date().toLocaleString()}\n${'='.repeat(60)}\n\n`;
+  window.evidenceLog.forEach((ev, i) => {
+    txt += `[${i+1}] ${ev.name}\n    SHA-256: ${ev.hash}\n    Time:    ${ev.time}\n    Cloud:   ${ev.synced ? 'Synced' : 'Local only'}\n\n`;
+  });
+  downloadText(txt, 'evidence_hash_log.txt');
+  toast('📤 Log exported!');
+};
+
+// ─────────────────────────────────────────────────────────
+//  INCIDENT REPORT
+// ─────────────────────────────────────────────────────────
+let selectedIncidentType = '';
+
+window.selectChip = function(el, type) {
+  document.querySelectorAll('#chip-group .chip').forEach(c => c.classList.remove('selected'));
+  el.classList.add('selected');
+  selectedIncidentType = type;
+  document.getElementById('incident-type').value = type;
+  suggestIPC();
+};
+
+window.getLocation = function() {
+  if (!navigator.geolocation) return toast('⚠️ Geolocation not supported.');
+
+  const btn = document.querySelector('[onclick="getLocation()"]');
+  if (btn) { btn.textContent = '⏳ Detecting…'; btn.disabled = true; }
+
+  navigator.geolocation.getCurrentPosition(async pos => {
+    const { latitude: lat, longitude: lng } = pos.coords;
+
+    // Show map preview immediately
+    showMapPreview(lat, lng);
+
+    // Reverse geocode using OpenStreetMap Nominatim (free, no API key)
+    try {
+      const res  = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&addressdetails=1`,
+        { headers: { 'Accept-Language': 'en' } }
+      );
+      const data = await res.json();
+      const a    = data.address || {};
+
+      // Build a human-readable address
+      const parts = [
+        a.road || a.pedestrian || a.footway || a.street || '',
+        a.neighbourhood || a.suburb || a.quarter || '',
+        a.city || a.town || a.village || a.county || '',
+        a.state_district || '',
+        a.state || '',
+        a.postcode || '',
+        a.country || ''
+      ].filter(Boolean);
+
+      const fullAddress = parts.join(', ');
+      document.getElementById('incident-location').value = fullAddress;
+
+      // Also store coordinates for FIR
+      document.getElementById('incident-location').dataset.lat = lat;
+      document.getElementById('incident-location').dataset.lng = lng;
+
+      toast('📍 Location resolved!');
+    } catch(e) {
+      // Fallback to coordinates if network fails
+      document.getElementById('incident-location').value = `Lat: ${lat.toFixed(6)}, Lng: ${lng.toFixed(6)}`;
+      toast('📍 Location detected (no address — offline)');
+    }
+
+    if (btn) { btn.textContent = '📍 Auto-detect my location'; btn.disabled = false; }
+
+  }, (err) => {
+    toast('⚠️ Could not get location. Please allow location access.');
+    if (btn) { btn.textContent = '📍 Auto-detect my location'; btn.disabled = false; }
+  }, { enableHighAccuracy: true, timeout: 10000 });
+};
+
+function showMapPreview(lat, lng) {
+  // Remove any existing preview
+  const existing = document.getElementById('map-preview-wrap');
+  if (existing) existing.remove();
+
+  const wrap = document.createElement('div');
+  wrap.id = 'map-preview-wrap';
+  wrap.style.cssText = 'margin-top:14px;border-radius:12px;overflow:hidden;border:1px solid var(--border);position:relative;';
+
+  // OpenStreetMap tile-based static map via iframe (works offline-capable, no key)
+  const zoom = 16;
+  wrap.innerHTML = `
+    <div style="background:var(--surface);padding:8px 14px;display:flex;align-items:center;justify-content:space-between;">
+      <span style="font-size:.75rem;color:var(--muted);font-family:'JetBrains Mono',monospace;">
+        📌 ${lat.toFixed(5)}, ${lng.toFixed(5)}
+      </span>
+      <a href="https://www.openstreetmap.org/?mlat=${lat}&mlon=${lng}#map=${zoom}/${lat}/${lng}"
+         target="_blank"
+         style="font-size:.72rem;color:var(--accent3);text-decoration:none;font-weight:600;">
+        Open in Maps ↗
+      </a>
+    </div>
+    <iframe
+      src="https://www.openstreetmap.org/export/embed.html?bbox=${lng-0.003}%2C${lat-0.002}%2C${lng+0.003}%2C${lat+0.002}&layer=mapnik&marker=${lat}%2C${lng}"
+      style="width:100%;height:220px;border:none;display:block;"
+      loading="lazy"
+      title="Incident Location Map">
+    </iframe>
+    <div style="background:var(--surface);padding:6px 14px;font-size:.68rem;color:var(--muted);">
+      Map data © <a href="https://www.openstreetmap.org/copyright" target="_blank" style="color:var(--muted);">OpenStreetMap</a> contributors
+    </div>
+  `;
+
+  // Insert after the location input row
+  const locRow = document.getElementById('incident-location').closest('.form-row');
+  locRow.parentNode.insertBefore(wrap, locRow.nextSibling);
+}
+
+window.saveReport = async function() {
+  const name = document.getElementById('victim-name').value.trim();
+  const desc = document.getElementById('incident-desc').value.trim();
+  if (!name || !desc) return toast('⚠️ Please fill Name and Incident Description.');
+
+  const report = {
+    name, desc,
+    phone:    document.getElementById('victim-phone').value.trim(),
+    date:     document.getElementById('incident-date').value,
+    time:     document.getElementById('incident-time').value,
+    location: document.getElementById('incident-location').value.trim(),
+    suspect:  document.getElementById('suspect-name').value.trim(),
+    suspDesc: document.getElementById('suspect-desc').value.trim(),
+    vehicle:  document.getElementById('suspect-vehicle').value.trim(),
+    witness:  document.getElementById('witness').value.trim(),
+    type:     selectedIncidentType,
+  };
+
+  // 🔥 Save to Firestore
+  if (window.firebaseHelpers && window.firebaseHelpers.isReady()) {
+    const ok = await window.firebaseHelpers.saveIncident(report);
+    toast(ok ? '✅ Report saved & synced to cloud ☁️' : '✅ Report saved locally.');
+  } else {
+    toast('✅ Report saved! You can now generate FIR.');
+  }
+};
+
+window.goToFIR = function() {
+  saveReport();
+  switchTab('fir');
+};
+
+// ─────────────────────────────────────────────────────────
+//  AUTO FIR
+// ─────────────────────────────────────────────────────────
+const ipcMap = {
+  'Harassment':       '354, 354A, 509 IPC',
+  'Stalking':         '354D IPC',
+  'Physical Assault': '323, 352 IPC',
+  'Eve Teasing':      '354, 509 IPC',
+  'Online Threat':    '507 IPC, Sec 67 IT Act',
+  'Theft':            '379 IPC',
+  'Other':            '(Specify relevant sections)'
+};
+
+window.suggestIPC = function() {
+  const type = document.getElementById('incident-type').value.trim() || selectedIncidentType;
+  if (ipcMap[type]) {
+    document.getElementById('ipc-sections').value = ipcMap[type];
+    toast('⚖️ IPC sections suggested!');
+  }
+};
+
+window.generateFIR = function() {
+  const g = id => document.getElementById(id).value.trim();
+  const name       = g('victim-name')    || '[Complainant Name]';
+  const phone      = g('victim-phone')   || 'N/A';
+  const type       = g('incident-type')  || 'Incident';
+  const date       = g('incident-date')  || new Date().toLocaleDateString('en-GB');
+  const time       = g('incident-time')  || 'N/A';
+  const location   = g('incident-location') || '[Location]';
+  const suspect    = g('suspect-name')   || 'Unknown';
+  const suspDesc   = g('suspect-desc')   || 'Not available';
+  const vehicle    = g('suspect-vehicle')|| 'Not available';
+  const desc       = g('incident-desc')  || '[Please fill incident description]';
+  const witness    = g('witness')        || 'None';
+  const ps         = g('police-station') || '[Police Station Name]';
+  const district   = g('district')       || '[District]';
+  const ipc        = g('ipc-sections')   || 'As applicable';
+  const firNo      = 'FIR-' + Date.now().toString().slice(-6);
+  const evidHashes = window.evidenceLog.length
+    ? window.evidenceLog.map((e,i) => `  ${i+1}. ${e.name}\n     SHA-256: ${e.hash}\n     Hashed : ${e.time}`).join('\n')
+    : '  [No digital evidence attached]';
+
+  // Pull & decrypt SOS location (written by sos.html, AES-encrypted)
+  let sosLocSection = '';
+  const s = loadLocationDecrypted();
+  if (s) {
+    sosLocSection = `\n──────────────────────────────────────────────────────────\nSOS LOCATION (GPS — AES-256 ENCRYPTED AT REST)\n──────────────────────────────────────────────────────────\nAddress          : ${s.address || 'N/A'}\nCoordinates      : ${s.lat}, ${s.lng}\nCaptured At      : ${s.capturedAt || 'N/A'}\nMaps Link        : https://maps.google.com/?q=${s.lat},${s.lng}`;
+  }
+
+  const fir = `
+══════════════════════════════════════════════════════════
+           FIRST INFORMATION REPORT (FIR) — DRAFT
+══════════════════════════════════════════════════════════
+
+FIR Reference No : ${firNo}
+Date of Report   : ${new Date().toLocaleDateString('en-IN')}
+Time of Report   : ${new Date().toLocaleTimeString('en-IN')}
+Police Station   : ${ps}
+District         : ${district}
+State            : Tamil Nadu
+
+──────────────────────────────────────────────────────────
+COMPLAINANT DETAILS
+──────────────────────────────────────────────────────────
+Name             : ${name}
+Phone            : ${phone}
+
+──────────────────────────────────────────────────────────
+INCIDENT DETAILS
+──────────────────────────────────────────────────────────
+Type of Incident : ${type}
+Date of Incident : ${date}
+Time of Incident : ${time}
+Location         : ${location}
+${sosLocSection}
+
+──────────────────────────────────────────────────────────
+SUSPECT INFORMATION
+──────────────────────────────────────────────────────────
+Suspect Name     : ${suspect}
+Description      : ${suspDesc}
+Vehicle          : ${vehicle}
+
+──────────────────────────────────────────────────────────
+INCIDENT DESCRIPTION
+──────────────────────────────────────────────────────────
+${desc}
+
+──────────────────────────────────────────────────────────
+WITNESSES
+──────────────────────────────────────────────────────────
+${witness}
+
+──────────────────────────────────────────────────────────
+APPLICABLE IPC SECTIONS
+──────────────────────────────────────────────────────────
+${ipc}
+
+──────────────────────────────────────────────────────────
+DIGITAL EVIDENCE (SHA-256 HASHES)
+──────────────────────────────────────────────────────────
+${evidHashes}
+
+──────────────────────────────────────────────────────────
+DECLARATION
+──────────────────────────────────────────────────────────
+I, ${name}, hereby declare that the above information
+is true to the best of my knowledge and belief.
+
+Complainant Signature: __________________
+Date: ${date}
+
+[Note: This is an auto-generated draft. Present to the
+ nearest police station for official registration.]
+══════════════════════════════════════════════════════════`.trim();
+
+  document.getElementById('fir-preview').textContent = fir;
+  document.getElementById('fir-preview').classList.add('visible');
+  document.getElementById('fir-status').style.display  = 'none';
+  document.getElementById('fir-actions').style.display = 'flex';
+  toast('📄 FIR draft generated!');
+};
+
+window.downloadFIR = function() {
+  const text = document.getElementById('fir-preview').textContent;
+  if (!text) return;
+  downloadText(text, 'FIR_Draft_' + Date.now() + '.txt');
+  toast('⬇️ FIR downloaded!');
+};
+window.copyFIR = function() {
+  const text = document.getElementById('fir-preview').textContent;
+  if (!text) return;
+  navigator.clipboard.writeText(text);
+  toast('📋 FIR copied!');
+};
+
+// ─────────────────────────────────────────────────────────
+//  FAKE CALL — SETUP
+// ─────────────────────────────────────────────────────────
+window.selectVoice = function(el, style) {
+  document.querySelectorAll('#voice-chip-group .chip').forEach(c => c.classList.remove('selected'));
+  el.classList.add('selected');
+  selectedVoiceStyle = style;
+};
+
+window.selectEmoji = function(el, emoji) {
+  document.querySelectorAll('#emoji-group .chip').forEach(c => c.classList.remove('selected'));
+  el.classList.add('selected');
+  selectedEmoji = emoji;
+  updateCallerPreview();
+};
+
+function updateCallerPreview() {
+  const name = document.getElementById('caller-name')?.value || 'Mom';
+  const num  = document.getElementById('caller-number')?.value || '+91 98765 43210';
+  document.getElementById('preview-emoji').textContent  = selectedEmoji;
+  document.getElementById('preview-name').textContent   = name || 'Mom';
+  document.getElementById('preview-number').textContent = num  || '+91 98765 43210';
+}
+
+document.addEventListener('input', e => {
+  if (e.target.id === 'caller-name' || e.target.id === 'caller-number') updateCallerPreview();
+});
+
+window.scheduleFakeCall   = () => startCountdown(parseInt(document.getElementById('call-delay').value) || 3);
+window.triggerFakeCallNow = () => showFakeCallScreen();
+
+function startCountdown(seconds) {
+  let remaining = seconds;
+  const total = seconds;
+  document.getElementById('countdown-display').style.display = 'block';
+  document.getElementById('ring-label').textContent = remaining;
+  updateRing(remaining, total);
+  if (callCountdownTimer) clearInterval(callCountdownTimer);
+  callCountdownTimer = setInterval(() => {
+    remaining--;
+    document.getElementById('ring-label').textContent = remaining;
+    updateRing(remaining, total);
+    if (remaining <= 0) {
+      clearInterval(callCountdownTimer);
+      document.getElementById('countdown-display').style.display = 'none';
+      showFakeCallScreen();
+    }
+  }, 1000);
+  toast('⏱ Fake call in ' + seconds + 's…');
+}
+
+function updateRing(remaining, total) {
+  const circ   = 2 * Math.PI * 35;
+  const offset = circ * (1 - remaining / total);
+  document.getElementById('ring-fill').style.strokeDashoffset = offset;
+}
+
+window.cancelFakeCall = function() {
+  if (callCountdownTimer) clearInterval(callCountdownTimer);
+  document.getElementById('countdown-display').style.display = 'none';
+  toast('✕ Fake call cancelled.');
+};
+
+function showFakeCallScreen() {
+  const name = document.getElementById('caller-name').value.trim() || 'Mom';
+  const num  = document.getElementById('caller-number').value.trim() || '+91 98765 43210';
+  document.getElementById('call-avatar').textContent        = selectedEmoji;
+  document.getElementById('call-name-display').textContent  = name;
+  document.getElementById('call-number-display').textContent = num;
+  document.getElementById('call-status-text').textContent   = 'Incoming Call…';
+  document.getElementById('call-timer-display').style.display = 'none';
+  document.getElementById('btn-accept').closest('div').style.display = 'block';
+  document.getElementById('btn-decline').closest('div').style.display = 'block';
+  document.getElementById('mute-btn-wrap').style.display  = 'none';
+  document.getElementById('spkr-btn-wrap').style.display  = 'none';
+  document.getElementById('voice-waveform').classList.remove('active');
+  document.getElementById('muted-indicator').classList.remove('show');
+  isMuted = false;
+  document.getElementById('fake-call-screen').classList.add('active');
+  if (navigator.vibrate) navigator.vibrate([300,200,300,200,300]);
+}
+
+window.acceptCall = function() {
+  document.getElementById('call-status-text').textContent    = 'Connected';
+  document.getElementById('call-timer-display').style.display = 'block';
+  document.getElementById('btn-accept').closest('div').style.display  = 'none';
+  document.getElementById('btn-decline').closest('div').style.display = 'block';
+  document.getElementById('mute-btn-wrap').style.display = 'block';
+  document.getElementById('spkr-btn-wrap').style.display = 'block';
+  fakeCallActive = true;
+  callSeconds = 0;
+  updateCallTimer();
+  callActiveTimer = setInterval(() => { callSeconds++; updateCallTimer(); }, 1000);
+
+  if (selectedVoiceStyle !== 'none') {
+    startFakeVoice(selectedVoiceStyle);
+  }
+};
+
+// ─────────────────────────────────────────────────────────
+//  🎙️ FAKE VOICE — Web Speech API (realistic TTS)
+// ─────────────────────────────────────────────────────────
+//  Uses the device's built-in text-to-speech voices.
+//  Much more realistic than oscillator sounds.
+//  Falls back to the old audio engine if Speech API is unavailable.
+// ─────────────────────────────────────────────────────────
+
+// Pre-written conversation scripts per voice style
+const conversationScripts = {
+  female: [
+    "Hello? Are you okay?",
+    "Where are you right now?",
+    "I was getting worried, you didn't call.",
+    "Should I come pick you up?",
+    "Just stay calm, I'm on my way.",
+    "Are you safe? Tell me where you are.",
+    "I spoke to Priya, she said you left an hour ago.",
+    "Just walk to a lit area, I'll be there in ten minutes.",
+    "Do you need me to call the police?",
+    "Okay, just stay on the line with me."
+  ],
+  male: [
+    "Hey, where are you?",
+    "Dad speaking. Everything okay?",
+    "I'm nearby, want me to come?",
+    "Just say the word, I'll be there.",
+    "Which road are you on?",
+    "Don't worry, I'm coming.",
+    "I'll be there in five minutes.",
+    "Stay where you are, okay?"
+  ],
+  elder: [
+    "Beta? Are you safe?",
+    "I've been waiting for your call.",
+    "Where are you, child?",
+    "Should I call your uncle?",
+    "Come home soon, I am worried.",
+    "Talk to me, everything okay?",
+    "Don't go anywhere alone, I am sending someone."
+  ]
+};
+
+let scriptIndex = 0;
+
+function getBestVoice(style) {
+  const voices = speechSynth ? speechSynth.getVoices() : [];
+
+  // Preferred voice name patterns per style
+  const prefs = {
+    female: ['female','woman','zira','samantha','victoria','heera','raveena','google hindi female','google uk english female','karen'],
+    male:   ['male','man','david','alex','daniel','rishi','google uk english male','google us english'],
+    elder:  ['senior','elder','male','man','david','daniel'],
+  };
+
+  const wanted = prefs[style] || prefs.female;
+
+  for (const pref of wanted) {
+    const match = voices.find(v => v.name.toLowerCase().includes(pref));
+    if (match) return match;
+  }
+
+  // Fallback: any voice with matching gender hint
+  if (style === 'female') {
+    return voices.find(v => v.name.toLowerCase().includes('f')) || voices[0];
+  }
+  return voices[0] || null;
+}
+
+function speakNextLine(style) {
+  if (!fakeCallActive || isMuted || !speechSynth) return;
+
+  const script = conversationScripts[style] || conversationScripts.female;
+  const line   = script[scriptIndex % script.length];
+  scriptIndex++;
+
+  // Highlight the script line in the UI if visible
+  const lineEls = document.querySelectorAll('.script-line');
+  lineEls.forEach(el => el.classList.remove('speaking'));
+  const activeLine = document.querySelector(`.script-line[data-idx="${(scriptIndex-1) % script.length}"]`);
+  if (activeLine) activeLine.classList.add('speaking');
+
+  const utt = new SpeechSynthesisUtterance(line);
+  const voice = getBestVoice(style);
+  if (voice) utt.voice = voice;
+
+  // Pitch & rate per style
+  if (style === 'female') { utt.pitch = 1.2; utt.rate = 0.95; }
+  else if (style === 'male') { utt.pitch = 0.8; utt.rate = 0.9; }
+  else if (style === 'elder') { utt.pitch = 0.75; utt.rate = 0.8; }
+
+  utt.volume = isSpeaker ? 1.0 : 0.6;
+
+  // Show waveform while speaking
+  utt.onstart = () => document.getElementById('voice-waveform').classList.add('active');
+  utt.onend   = () => {
+    document.getElementById('voice-waveform').classList.remove('active');
+    if (activeLine) activeLine.classList.remove('speaking');
+    if (!fakeCallActive) return;
+    // Pause 2–5 seconds between lines
+    const pause = 2000 + Math.random() * 3000;
+    speechLoopTimer = setTimeout(() => speakNextLine(style), pause);
+  };
+  utt.onerror = () => {
+    document.getElementById('voice-waveform').classList.remove('active');
+  };
+
+  speechSynth.speak(utt);
+  speechUtterance = utt;
+}
+
+function startFakeVoice(style) {
+  scriptIndex = 0;
+  if (speechSynth) {
+    speechSynth.cancel();
+    // Small delay so browser TTS engine is ready
+    speechLoopTimer = setTimeout(() => speakNextLine(style), 800);
+  } else {
+    // Fallback to Web Audio oscillator engine (original)
+    startFakeVoiceFallback(style);
+  }
+}
+
+function stopFakeVoice() {
+  if (speechLoopTimer) clearTimeout(speechLoopTimer);
+  speechLoopTimer = null;
+  if (speechSynth) speechSynth.cancel();
+  speechUtterance = null;
+  document.getElementById('voice-waveform').classList.remove('active');
+  document.querySelectorAll('.script-line').forEach(el => el.classList.remove('speaking'));
+}
+
+// ─────────────────────────────────────────────────────────
+//  FALLBACK: Web Audio oscillator engine (original)
+//  Used on browsers/devices without Speech Synthesis
+// ─────────────────────────────────────────────────────────
+let audioCtx = null;
+let voiceInterval = null;
+
+function startFakeVoiceFallback(style) {
+  try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); }
+  catch(e) { return; }
+
+  const profiles = {
+    female: { baseFreq:220, jitter:18, burstRate:420, breathFreq:900 },
+    male:   { baseFreq:110, jitter:10, burstRate:280, breathFreq:600 },
+    elder:  { baseFreq:130, jitter:25, burstRate:250, breathFreq:700 },
+  };
+  const p = profiles[style] || profiles.female;
+
+  function speakBurst() {
+    if (!audioCtx || isMuted) return;
+    const now      = audioCtx.currentTime;
+    const duration = 0.12 + Math.random() * 0.25;
+    const osc      = audioCtx.createOscillator();
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(p.baseFreq + (Math.random()*p.jitter - p.jitter/2), now);
+    osc.frequency.linearRampToValueAtTime(p.baseFreq + (Math.random()*p.jitter), now+duration);
+    const f1 = audioCtx.createBiquadFilter(); f1.type='bandpass'; f1.frequency.value=500+Math.random()*300; f1.Q.value=5;
+    const f2 = audioCtx.createBiquadFilter(); f2.type='bandpass'; f2.frequency.value=p.breathFreq+Math.random()*200; f2.Q.value=8;
+    const pf = audioCtx.createBiquadFilter(); pf.type='bandpass'; pf.frequency.value=1800; pf.Q.value=0.7;
+    const bufSize   = audioCtx.sampleRate * duration;
+    const noiseBuf  = audioCtx.createBuffer(1, bufSize, audioCtx.sampleRate);
+    const data      = noiseBuf.getChannelData(0);
+    for (let i=0;i<bufSize;i++) data[i]=Math.random()*2-1;
+    const noiseSrc  = audioCtx.createBufferSource(); noiseSrc.buffer=noiseBuf;
+    const noiseGain = audioCtx.createGain(); noiseGain.gain.value=0.04;
+    const noiseF    = audioCtx.createBiquadFilter(); noiseF.type='highpass'; noiseF.frequency.value=2000;
+    const env = audioCtx.createGain();
+    env.gain.setValueAtTime(0,now);
+    env.gain.linearRampToValueAtTime(0.18,now+0.02);
+    env.gain.setValueAtTime(0.18,now+duration-0.03);
+    env.gain.linearRampToValueAtTime(0,now+duration);
+    const master = audioCtx.createGain(); master.gain.value = isSpeaker ? 0.9 : 0.55;
+    osc.connect(f1); f1.connect(f2); f2.connect(pf); pf.connect(env);
+    noiseSrc.connect(noiseF); noiseF.connect(noiseGain); noiseGain.connect(env);
+    env.connect(master); master.connect(audioCtx.destination);
+    osc.start(now); osc.stop(now+duration);
+    noiseSrc.start(now); noiseSrc.stop(now+duration);
+    document.getElementById('voice-waveform').classList.add('active');
+    setTimeout(() => document.getElementById('voice-waveform').classList.remove('active'), duration*1000);
+  }
+
+  function speechLoop() {
+    if (!fakeCallActive) return;
+    const words = 3 + Math.floor(Math.random()*5);
+    let delay = 0;
+    for (let i=0;i<words;i++) {
+      const gap = 80+Math.random()*120;
+      setTimeout(() => { if (!isMuted) speakBurst(); }, delay);
+      delay += gap + (120+Math.random()*200);
+    }
+    voiceInterval = setTimeout(speechLoop, delay + 1200 + Math.random()*1800);
+  }
+  voiceInterval = setTimeout(speechLoop, 800);
+}
+
+function stopFakeVoiceFallback() {
+  if (voiceInterval) clearTimeout(voiceInterval);
+  voiceInterval = null;
+  if (audioCtx) { audioCtx.close(); audioCtx = null; }
+  document.getElementById('voice-waveform').classList.remove('active');
+}
+
+// ─────────────────────────────────────────────────────────
+//  FAKE CALL — CONTROLS
+// ─────────────────────────────────────────────────────────
+window.toggleMute = function() {
+  isMuted = !isMuted;
+  const btn = document.getElementById('btn-mute');
+  const lbl = document.getElementById('mute-label');
+  const ind = document.getElementById('muted-indicator');
+  if (isMuted) {
+    btn.textContent = '🔇';
+    btn.style.background = 'rgba(255,59,92,.3)';
+    lbl.textContent = 'Unmute';
+    ind.classList.add('show');
+    if (speechSynth) speechSynth.pause();
+    document.getElementById('voice-waveform').classList.remove('active');
+  } else {
+    btn.textContent = '🎙️';
+    btn.style.background = '';
+    lbl.textContent = 'Mute';
+    ind.classList.remove('show');
+    if (speechSynth) speechSynth.resume();
+  }
+};
+
+window.toggleSpeaker = function() {
+  isSpeaker = !isSpeaker;
+  const btn = document.getElementById('btn-spkr');
+  const lbl = document.getElementById('spkr-label');
+  if (isSpeaker) {
+    btn.style.background = 'rgba(0,212,170,.25)';
+    btn.style.color      = 'var(--accent3)';
+    lbl.textContent = 'Speaker On';
+  } else {
+    btn.style.background = '';
+    btn.style.color      = '';
+    lbl.textContent = 'Speaker';
+  }
+  toast(isSpeaker ? '🔊 Speaker ON' : '🔈 Speaker OFF');
+};
+
+function updateCallTimer() {
+  const m = String(Math.floor(callSeconds/60)).padStart(2,'0');
+  const s = String(callSeconds%60).padStart(2,'0');
+  document.getElementById('call-timer-display').textContent = m+':'+s;
+}
+
+window.declineCall = () => endCall();
+window.endCall     = endCall;
+
+function endCall() {
+  stopFakeVoice();
+  stopFakeVoiceFallback();
+  if (callActiveTimer) clearInterval(callActiveTimer);
+  fakeCallActive = false;
+  document.getElementById('fake-call-screen').classList.remove('active');
+  toast('📵 Call ended.');
+}
+
+// ─────────────────────────────────────────────────────────
+//  LOCATION HASHING (from SOS)
+// ─────────────────────────────────────────────────────────
+let currentLocHash = '';
+let currentLocString = '';
+
+function refreshSOSLocation() {
+  const raw = localStorage.getItem('safeher_sos_location');
+  const el  = document.getElementById('sos-loc-preview');
+  if (!raw) {
+    el.innerHTML = '<span style="color:var(--muted)">No location saved yet. Trigger SOS first to capture your GPS location.</span>';
+    return;
+  }
+
+  // Decrypt using the logged-in user's key
+  const s = loadLocationDecrypted();
+  if (!s) {
+    el.innerHTML = '<span style="color:var(--accent)">🔐 Location is encrypted. Cannot decrypt — wrong user or key.</span>';
+    return;
+  }
+
+  currentLocString = `Address: ${s.address || 'N/A'} | Coordinates: ${s.lat}, ${s.lng} | Captured: ${s.capturedAt || 'N/A'}`;
+  el.innerHTML = `
+    <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;">
+      <span style="font-size:.7rem;background:rgba(0,212,170,.12);color:var(--accent3);border:1px solid rgba(0,212,170,.2);border-radius:4px;padding:2px 7px;font-family:'JetBrains Mono',monospace;">🔐 AES-256 Encrypted</span>
+    </div>
+    <div style="color:var(--text);font-weight:600;margin-bottom:4px;">📍 ${s.address || 'Location captured'}</div>
+    <div style="font-family:'JetBrains Mono',monospace;font-size:.72rem;color:var(--accent3);">${s.lat}, ${s.lng}</div>
+    <div style="font-size:.72rem;color:var(--muted);margin-top:4px;">Captured: ${s.capturedAt || 'N/A'}</div>
+    <a href="https://maps.google.com/?q=${s.lat},${s.lng}" target="_blank"
+       style="font-size:.72rem;color:var(--accent3);margin-top:6px;display:inline-block;">Open in Maps ↗</a>
+  `;
+}
+
+window.hashSOSLocation = function() {
+  refreshSOSLocation();
+  // If decrypted string is ready, hash it
+  if (currentLocString) {
+    const hash = CryptoJS.SHA256(currentLocString).toString();
+    currentLocHash = hash;
+    document.getElementById('loc-hash-display').textContent = hash;
+    document.getElementById('loc-hash-timestamp').textContent = new Date().toLocaleString();
+    document.getElementById('loc-hash-result').classList.add('visible');
+    toast('✅ Location saved as proof!');
+    return;
+  }
+  // Fallback: hash the raw encrypted blob itself (still tamper-proof)
+  const raw = localStorage.getItem('safeher_sos_location');
+  if (!raw) return toast('⚠️ No location found yet. Open the SOS page first to capture your location.');
+  currentLocString = raw; // use raw as the string to hash
+  const hash = CryptoJS.SHA256(raw).toString();
+  currentLocHash = hash;
+  document.getElementById('loc-hash-display').textContent = hash;
+  document.getElementById('loc-hash-timestamp').textContent = new Date().toLocaleString();
+  document.getElementById('loc-hash-result').classList.add('visible');
+  toast('✅ Location saved as proof!');
+};
+
+window.copyLocHash = () => { navigator.clipboard.writeText(currentLocHash); toast('📋 Location hash copied!'); };
+
+window.saveLocEvidence = async function() {
+  if (!currentLocHash) return;
+  const item = {
+    type: 'location',
+    name: 'SOS GPS Location: ' + (currentLocString.split('|')[0] || '').trim(),
+    hash: currentLocHash,
+    size: currentLocString.length,
+    time: new Date().toLocaleString(),
+    synced: false
+  };
+  addToLog(item);
+
+  if (window.firebaseHelpers && window.firebaseHelpers.isReady()) {
+    const ok = await window.firebaseHelpers.saveEvidence(item);
+    if (ok) {
+      window.evidenceLog[window.evidenceLog.length-1].synced = true;
+      renderLog();
+      toast('💾 Location proof saved & backed up ☁️');
+    } else {
+      toast('💾 Location proof saved (offline)');
+    }
+  } else {
+    toast('💾 Location proof saved!');
+  }
+};
+
+// ─────────────────────────────────────────────────────────
+//  BOOT
+// ─────────────────────────────────────────────────────────
+function downloadText(text, filename) {
+  const blob = new Blob([text], {type:'text/plain'});
+  const a    = document.createElement('a');
+  a.href     = URL.createObjectURL(blob);
+  a.download = filename;
+  a.click();
+}
+
+function toast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2800);
+}
+
+</script>
+</body>
+</html>

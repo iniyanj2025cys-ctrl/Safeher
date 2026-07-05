@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>SafeHer — Register</title>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+  <script src="config.js"></script>
+  <style>
+    :root {
+      --bg: #07080f; --surface: #0f1120; --border: #1e2140;
+      --accent: #ff2d6b; --accent2: #ff7043; --glow: rgba(255,45,107,0.25);
+      --text: #f0f0f8; --muted: #6b6f8c; --success: #00e5a0;
+      --error: #ff4d6d; --input-bg: #131629;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text);
+      min-height: 100vh; display: flex; align-items: flex-start;
+      justify-content: center; padding: 40px 16px; overflow-x: hidden;
+    }
+    body::before {
+      content: ''; position: fixed; top: -200px; left: -200px;
+      width: 600px; height: 600px;
+      background: radial-gradient(circle, rgba(255,45,107,0.12) 0%, transparent 70%);
+      animation: blob 8s ease-in-out infinite alternate; pointer-events: none;
+    }
+    @keyframes blob { from { transform: translate(0,0) scale(1); } to { transform: translate(60px,40px) scale(1.15); } }
+    .grid-bg {
+      position: fixed; inset: 0;
+      background-image: linear-gradient(rgba(255,45,107,0.04) 1px, transparent 1px),
+                        linear-gradient(90deg, rgba(255,45,107,0.04) 1px, transparent 1px);
+      background-size: 40px 40px; pointer-events: none;
+    }
+    .card {
+      position: relative; z-index: 10; width: 100%; max-width: 460px;
+      padding: 48px 40px; background: var(--surface);
+      border: 1px solid var(--border); border-radius: 24px;
+      box-shadow: 0 0 60px rgba(255,45,107,0.08), 0 20px 60px rgba(0,0,0,0.5);
+      animation: cardIn 0.6s cubic-bezier(0.34,1.56,0.64,1) both;
+    }
+    @keyframes cardIn { from { opacity:0; transform: translateY(32px) scale(0.96); } to { opacity:1; transform: translateY(0) scale(1); } }
+    .brand { display: flex; align-items: center; gap: 10px; margin-bottom: 28px; }
+    .brand-icon { width: 40px; height: 40px; background: linear-gradient(135deg, var(--accent), var(--accent2)); border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 18px; box-shadow: 0 0 20px var(--glow); }
+    .brand-name { font-family: 'Syne', sans-serif; font-size: 22px; font-weight: 800; letter-spacing: -0.5px; }
+    .brand-name span { color: var(--accent); }
+    .enc-badge { display: flex; align-items: center; gap: 8px; background: rgba(0,229,160,0.07); border: 1px solid rgba(0,229,160,0.2); border-radius: 8px; padding: 8px 12px; font-size: 12px; color: var(--success); margin-bottom: 24px; }
+    .alert-preview { background: rgba(255,45,107,0.07); border: 1px solid rgba(255,45,107,0.25); border-radius: 12px; padding: 14px 16px; margin-bottom: 24px; font-size: 13px; }
+    .alert-preview .ap-title { font-weight: 600; color: var(--accent); margin-bottom: 6px; font-size: 12px; text-transform: uppercase; letter-spacing: 0.8px; }
+    .alert-preview .ap-msg { color: var(--muted); line-height: 1.5; }
+    .alert-preview .ap-msg strong { color: var(--text); }
+    .panel-title { font-family: 'Syne', sans-serif; font-size: 26px; font-weight: 700; margin-bottom: 6px; }
+    .panel-sub { font-size: 13px; color: var(--muted); margin-bottom: 24px; }
+    .field { margin-bottom: 16px; }
+    .field label { display: block; font-size: 12px; font-weight: 500; color: var(--muted); text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 8px; }
+    .input-wrap { position: relative; }
+    .input-wrap .icon { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); font-size: 15px; color: var(--muted); pointer-events: none; }
+    .input-wrap input { width: 100%; padding: 13px 14px 13px 40px; background: var(--input-bg); border: 1px solid var(--border); border-radius: 11px; color: var(--text); font-family: 'DM Sans', sans-serif; font-size: 14px; outline: none; transition: border-color 0.25s, box-shadow 0.25s; }
+    .input-wrap input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--glow); }
+    .input-wrap input::placeholder { color: #3a3d55; }
+    .toggle-pw { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); background: none; border: none; color: var(--muted); cursor: pointer; font-size: 14px; padding: 4px; }
+    .section-label { display: flex; align-items: center; gap: 10px; font-size: 12px; font-weight: 700; color: var(--accent); text-transform: uppercase; letter-spacing: 1px; margin: 24px 0 16px; }
+    .section-label::before { content: ''; flex: 1; height: 1px; background: linear-gradient(90deg, var(--border), transparent); }
+    .section-label::after  { content: ''; flex: 1; height: 1px; background: linear-gradient(90deg, transparent, var(--border)); }
+    .ec-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px; }
+    .ec-card { background: var(--input-bg); border: 1px solid var(--border); border-radius: 14px; padding: 14px; transition: border-color 0.25s; }
+    .ec-card:focus-within { border-color: var(--accent); box-shadow: 0 0 0 2px var(--glow); }
+    .ec-card-header { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+    .ec-icon { width: 28px; height: 28px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 14px; }
+    .ec-icon.father   { background: rgba(66,165,245,0.15); }
+    .ec-icon.mother   { background: rgba(236,64,122,0.15); }
+    .ec-icon.relative { background: rgba(102,187,106,0.15); }
+    .ec-icon.friend   { background: rgba(255,183,77,0.15); }
+    .ec-label { font-size: 11px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.6px; }
+    .ec-card input { width: 100%; background: transparent; border: none; border-bottom: 1px solid var(--border); color: var(--text); font-family: 'DM Sans', sans-serif; font-size: 13px; padding: 6px 0; outline: none; transition: border-color 0.2s; }
+    .ec-card input:focus { border-bottom-color: var(--accent); }
+    .ec-card input::placeholder { color: #3a3d55; font-size: 12px; }
+    .ec-card .name-input  { margin-bottom: 8px; }
+    .ec-card .phone-input { margin-bottom: 8px; }
+    .strength-wrap { margin-top: 8px; display: none; }
+    .strength-wrap.show { display: block; }
+    .strength-bar { height: 3px; background: var(--border); border-radius: 4px; overflow: hidden; margin-bottom: 4px; }
+    .strength-fill { height: 100%; border-radius: 4px; transition: width 0.4s, background 0.4s; }
+    .strength-label { font-size: 11px; }
+    .btn-primary { width: 100%; padding: 14px; background: linear-gradient(135deg, var(--accent), var(--accent2)); border: none; border-radius: 12px; color: #fff; font-family: 'Syne', sans-serif; font-size: 15px; font-weight: 700; cursor: pointer; transition: transform 0.2s, box-shadow 0.2s; box-shadow: 0 6px 24px var(--glow); margin-top: 8px; }
+    .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 10px 32px var(--glow); }
+    .btn-primary:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+    .login-link { text-align: center; margin-top: 20px; font-size: 13px; color: var(--muted); }
+    .login-link a { color: var(--accent); text-decoration: none; font-weight: 500; }
+    .alert { display: none; padding: 11px 14px; border-radius: 9px; font-size: 13px; margin-top: 14px; font-weight: 500; }
+    .alert.error   { background: rgba(255,77,109,0.12); border:1px solid rgba(255,77,109,0.3); color: var(--error); }
+    .alert.success { background: rgba(0,229,160,0.10); border:1px solid rgba(0,229,160,0.3); color: var(--success); }
+    .alert.show    { display: block; }
+    @media (max-width: 480px) { .card { padding: 32px 20px; } .ec-grid { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <div class="grid-bg"></div>
+  <div class="card">
+    <div class="brand">
+      <div class="brand-icon">🛡️</div>
+      <div class="brand-name">Safe<span>Her</span></div>
+    </div>
+    <div class="enc-badge"><span>🔐</span> End-to-End Encrypted with AES-256 · CryptoJS</div>
+    <div class="panel-title">Create account</div>
+    <div class="panel-sub">Join SafeHer — your data is encrypted at every step.</div>
+
+    <div class="alert-preview">
+      <div class="ap-title">📣 Your contacts will receive:</div>
+      <div class="ap-msg">"<strong id="preview-name">Your Name</strong> just joined SafeHer! They added you as an emergency contact. You'll be notified if they're ever in danger."</div>
+    </div>
+
+    <div class="field">
+      <label>Full Name</label>
+      <div class="input-wrap">
+        <span class="icon">👤</span>
+        <input type="text" id="reg-name" placeholder="Your full name" oninput="updatePreview()"/>
+      </div>
+    </div>
+    <div class="field">
+      <label>Phone Number</label>
+      <div class="input-wrap">
+        <span class="icon">📱</span>
+        <input type="tel" id="reg-phone" placeholder="+91 9876543210"/>
+      </div>
+    </div>
+    <div class="field">
+      <label>Email</label>
+      <div class="input-wrap">
+        <span class="icon">✉️</span>
+        <input type="email" id="reg-email" placeholder="you@example.com"/>
+      </div>
+    </div>
+    <div class="field">
+      <label>Password</label>
+      <div class="input-wrap">
+        <span class="icon">🔑</span>
+        <input type="password" id="reg-password" placeholder="Min. 8 characters" oninput="checkStrength(this.value)"/>
+        <button class="toggle-pw" type="button" onclick="togglePw('reg-password', this)">👁</button>
+      </div>
+      <div class="strength-wrap" id="strength-wrap">
+        <div class="strength-bar"><div class="strength-fill" id="strength-fill"></div></div>
+        <div class="strength-label" id="strength-label"></div>
+      </div>
+    </div>
+
+    <div class="section-label">🚨 Emergency Contacts</div>
+    <div class="ec-grid">
+      <div class="ec-card">
+        <div class="ec-card-header">
+          <div class="ec-icon father">👨</div>
+          <span class="ec-label">Father</span>
+        </div>
+        <input class="name-input"  type="text"  id="ec-father-name"  placeholder="Father's name"/>
+        <input class="phone-input" type="tel"   id="ec-father-phone" placeholder="+91 phone"/>
+        <input                     type="email" id="ec-father-email" placeholder="father@email.com"/>
+      </div>
+      <div class="ec-card">
+        <div class="ec-card-header">
+          <div class="ec-icon mother">👩</div>
+          <span class="ec-label">Mother</span>
+        </div>
+        <input class="name-input"  type="text"  id="ec-mother-name"  placeholder="Mother's name"/>
+        <input class="phone-input" type="tel"   id="ec-mother-phone" placeholder="+91 phone"/>
+        <input                     type="email" id="ec-mother-email" placeholder="mother@email.com"/>
+      </div>
+      <div class="ec-card">
+        <div class="ec-card-header">
+          <div class="ec-icon relative">👪</div>
+          <span class="ec-label">Relative</span>
+        </div>
+        <input class="name-input"  type="text"  id="ec-relative-name"  placeholder="Relative's name"/>
+        <input class="phone-input" type="tel"   id="ec-relative-phone" placeholder="+91 phone"/>
+        <input                     type="email" id="ec-relative-email" placeholder="relative@email.com"/>
+      </div>
+      <div class="ec-card">
+        <div class="ec-card-header">
+          <div class="ec-icon friend">👫</div>
+          <span class="ec-label">Friend</span>
+        </div>
+        <input class="name-input"  type="text"  id="ec-friend-name"  placeholder="Friend's name"/>
+        <input class="phone-input" type="tel"   id="ec-friend-phone" placeholder="+91 phone"/>
+        <input                     type="email" id="ec-friend-email" placeholder="friend@email.com"/>
+      </div>
+    </div>
+
+    <button class="btn-primary" id="reg-btn" type="button" onclick="registerWithContacts()">Create Secure Account</button>
+    <div class="login-link">Already have an account? <a href="index.html">Login here</a></div>
+    <div class="alert" id="reg-alert"></div>
+  </div>
+
+  <script>
+    /* ── ALL HELPER FUNCTIONS INLINED ── no dependency on auth.js ── */
+
+    // Wait for Firebase to be ready
+    function getFirebase() {
+      if (typeof firebase === 'undefined') throw new Error('Firebase not loaded. Check config.js');
+      const app = firebase.apps.length ? firebase.apps[0] : null;
+      if (!app) throw new Error('Firebase not initialized. Check config.js');
+      return {
+        auth: firebase.auth(),
+        db:   firebase.firestore()
+      };
+    }
+
+    // SHA-256 hash using CryptoJS
+    function hashSHA256(value) {
+      if (!value) return '';
+      return CryptoJS.SHA256(value).toString();
+    }
+
+    // AES-256 encrypt using CryptoJS
+    const SECRET_KEY = 'SafeHer_AES_Secret_Key_2024!';
+    function encrypt(data) {
+      try {
+        return CryptoJS.AES.encrypt(JSON.stringify(data), SECRET_KEY).toString();
+      } catch(e) {
+        return JSON.stringify(data); // fallback if CryptoJS fails
+      }
+    }
+
+    // Show/hide alert box
+    function showAlert(el, type, msg) {
+      el.className = 'alert ' + type + ' show';
+      el.textContent = msg;
+      el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+
+    // Button loading state
+    function setLoading(btn, isLoading, label) {
+      btn.disabled = isLoading;
+      btn.textContent = isLoading ? '⏳ ' + label : label;
+    }
+
+    // Save user session to localStorage
+    function saveSession(user, profile) {
+  sessionStorage.setItem('uid',       user.uid);
+  sessionStorage.setItem('userName',  profile.name  || '');
+  sessionStorage.setItem('userEmail', profile.email || user.email || '');
+  sessionStorage.setItem('userPhone', profile.phone || '');
+    }
+
+    // Firebase error → readable message
+    function friendlyError(code) {
+      const map = {
+        'auth/email-already-in-use':  'This email is already registered. Try logging in.',
+        'auth/weak-password':         'Password is too weak. Use at least 8 characters.',
+        'auth/invalid-email':         'Please enter a valid email address.',
+        'auth/network-request-failed':'Network error. Check your internet connection.',
+        'auth/too-many-requests':     'Too many attempts. Please wait a moment and try again.'
+      };
+      return map[code] || 'Something went wrong. Please try again. (' + (code || 'unknown') + ')';
+    }
+
+    // Password strength checker
+    function checkStrength(val) {
+      const wrap  = document.getElementById('strength-wrap');
+      const fill  = document.getElementById('strength-fill');
+      const label = document.getElementById('strength-label');
+      if (!val) { wrap.classList.remove('show'); return; }
+      wrap.classList.add('show');
+      let score = 0;
+      if (val.length >= 8)  score++;
+      if (val.length >= 12) score++;
+      if (/[A-Z]/.test(val)) score++;
+      if (/[0-9]/.test(val)) score++;
+      if (/[^A-Za-z0-9]/.test(val)) score++;
+      const levels = [
+        { w: '20%',  bg: '#ff4d6d', text: 'Weak' },
+        { w: '40%',  bg: '#ff7043', text: 'Fair' },
+        { w: '60%',  bg: '#f9a825', text: 'Good' },
+        { w: '80%',  bg: '#00c853', text: 'Strong' },
+        { w: '100%', bg: '#00e5a0', text: 'Very Strong' }
+      ];
+      const l = levels[Math.min(score - 1, 4)] || levels[0];
+      fill.style.width      = l.w;
+      fill.style.background = l.bg;
+      label.style.color     = l.bg;
+      label.textContent     = l.text;
+    }
+
+    // Toggle password visibility
+    function togglePw(id, btn) {
+      const input = document.getElementById(id);
+      if (input.type === 'password') { input.type = 'text';     btn.textContent = '🙈'; }
+      else                           { input.type = 'password'; btn.textContent = '👁'; }
+    }
+
+    // Preview name in alert box
+    function updatePreview() {
+      const name = document.getElementById('reg-name').value.trim();
+      document.getElementById('preview-name').textContent = name || 'Your Name';
+    }
+
+    /* ── MAIN REGISTER FUNCTION ── */
+    async function registerWithContacts() {
+      const alertEl  = document.getElementById('reg-alert');
+      const btn      = document.getElementById('reg-btn');
+
+      // Clear old alert
+      alertEl.className = 'alert';
+      alertEl.textContent = '';
+
+      const name     = document.getElementById('reg-name').value.trim();
+      const phone    = document.getElementById('reg-phone').value.trim();
+      const email    = document.getElementById('reg-email').value.trim();
+      const password = document.getElementById('reg-password').value;
+
+      const emergencyContacts = [
+        { relation: 'Father',   name: document.getElementById('ec-father-name').value.trim(),   phone: document.getElementById('ec-father-phone').value.trim(),   email: document.getElementById('ec-father-email').value.trim() },
+        { relation: 'Mother',   name: document.getElementById('ec-mother-name').value.trim(),   phone: document.getElementById('ec-mother-phone').value.trim(),   email: document.getElementById('ec-mother-email').value.trim() },
+        { relation: 'Relative', name: document.getElementById('ec-relative-name').value.trim(), phone: document.getElementById('ec-relative-phone').value.trim(), email: document.getElementById('ec-relative-email').value.trim() },
+        { relation: 'Friend',   name: document.getElementById('ec-friend-name').value.trim(),   phone: document.getElementById('ec-friend-phone').value.trim(),   email: document.getElementById('ec-friend-email').value.trim() },
+      ];
+
+      // Validations
+      if (!name)     return showAlert(alertEl, 'error', 'Please enter your full name.');
+      if (!phone)    return showAlert(alertEl, 'error', 'Please enter your phone number.');
+      if (!email)    return showAlert(alertEl, 'error', 'Please enter your email address.');
+      if (!password) return showAlert(alertEl, 'error', 'Please enter a password.');
+      if (password.length < 8) return showAlert(alertEl, 'error', 'Password must be at least 8 characters.');
+
+      const filledContacts = emergencyContacts.filter(c => c.phone || c.email);
+      if (filledContacts.length === 0)
+        return showAlert(alertEl, 'error', 'Please add at least one emergency contact (phone or email).');
+
+      setLoading(btn, true, 'Creating account...');
+
+      try {
+        // Get Firebase instances
+        const { auth, db } = getFirebase();
+
+        // Create Firebase Auth user
+        const cred = await auth.createUserWithEmailAndPassword(email, password);
+        await cred.user.updateProfile({ displayName: name });
+
+        // Encrypt full profile
+        const userProfile      = { name, phone, email, emergencyContacts };
+        const encryptedProfile = encrypt(userProfile);
+
+        // Save to Firestore users collection
+        // plain email + plainPhone stored unencrypted for SOS broadcasts
+        await db.collection('users').doc(cred.user.uid).set({
+          profile:     encryptedProfile,          // encrypted blob
+          phoneHash:   hashSHA256(phone),          // hashed phone
+          email:       email,                      // plain email — for SOS broadcast (Person 3 needs this)
+          plainPhone:  phone,                      // plain phone — for SMS alerts (Person 3 needs this)
+          name:        name,                       // plain name — for display
+          patternHash: null,                       // SOS pattern set later in sos.html settings
+          createdAt:   firebase.firestore.FieldValue.serverTimestamp(),
+          uid:         cred.user.uid
+        });
+
+        // Save each emergency contact to alerts collection
+        for (const contact of filledContacts) {
+          await db.collection('alerts').add({
+            type:       'new_user',
+            toName:     contact.name,
+            toPhone:    hashSHA256(contact.phone || ''),  // hashed for security
+            plainPhone: contact.phone,                     // plain phone — for SMS (Person 3 needs this)
+            toEmail:    contact.email,                     // plain email — for EmailJS (Person 3 needs this)
+            relation:   contact.relation,
+            fromUid:    cred.user.uid,
+            fromName:   name,
+            fromEmail:  email,
+            message:    `${name} just joined SafeHer! They added you (${contact.relation}) as an emergency contact. You'll be notified if they're ever in danger.`,
+            createdAt:  firebase.firestore.FieldValue.serverTimestamp(),
+            read:       false
+          });
+        }
+
+        // Save session
+        saveSession(cred.user, userProfile);
+
+        showAlert(alertEl, 'success', `✅ Welcome to SafeHer, ${name}! ${filledContacts.length} contact(s) notified.`);
+        setTimeout(() => window.location.href = 'sos.html', 2000);
+
+      } catch (err) {
+        console.error('Registration error:', err);
+        showAlert(alertEl, 'error', friendlyError(err.code));
+      } finally {
+        setLoading(btn, false, 'Create Secure Account');
+      }
+    }
+  </script>
+</body>
+</html>

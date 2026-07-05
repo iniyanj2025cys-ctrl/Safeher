@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>SafeHer — Login</title>
+  <link rel="manifest" href="manifest.json"/>
+  <meta name="mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+  <meta name="apple-mobile-web-app-title" content="SafeHer"/>
+  <meta name="theme-color" content="#ff2d6b"/>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+  <script src="config.js"></script>
+  <style>
+    :root {
+      --bg: #07080f; --surface: #0f1120; --border: #1e2140;
+      --accent: #ff2d6b; --accent2: #ff7043; --glow: rgba(255,45,107,0.25);
+      --text: #f0f0f8; --muted: #6b6f8c; --success: #00e5a0;
+      --error: #ff4d6d; --input-bg: #131629;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 40px 16px; overflow-x: hidden; }
+    body::before { content: ''; position: fixed; top: -200px; left: -200px; width: 600px; height: 600px; background: radial-gradient(circle, rgba(255,45,107,0.12) 0%, transparent 70%); animation: blob 8s ease-in-out infinite alternate; pointer-events: none; }
+    body::after { content: ''; position: fixed; bottom: -150px; right: -150px; width: 500px; height: 500px; background: radial-gradient(circle, rgba(255,112,67,0.10) 0%, transparent 70%); animation: blob 10s ease-in-out infinite alternate-reverse; pointer-events: none; }
+    @keyframes blob { from { transform: translate(0,0) scale(1); } to { transform: translate(60px,40px) scale(1.15); } }
+    .grid-bg { position: fixed; inset: 0; background-image: linear-gradient(rgba(255,45,107,0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(255,45,107,0.04) 1px, transparent 1px); background-size: 40px 40px; pointer-events: none; }
+    .card { position: relative; z-index: 10; width: 100%; max-width: 440px; padding: 48px 40px; background: var(--surface); border: 1px solid var(--border); border-radius: 24px; box-shadow: 0 0 60px rgba(255,45,107,0.08), 0 20px 60px rgba(0,0,0,0.5); animation: cardIn 0.6s cubic-bezier(0.34,1.56,0.64,1) both; }
+    @keyframes cardIn { from { opacity:0; transform: translateY(32px) scale(0.96); } to { opacity:1; transform: translateY(0) scale(1); } }
+    .brand { display: flex; align-items: center; gap: 10px; margin-bottom: 36px; }
+    .brand-icon { width: 40px; height: 40px; background: linear-gradient(135deg, var(--accent), var(--accent2)); border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 18px; box-shadow: 0 0 20px var(--glow); }
+    .brand-name { font-family: 'Syne', sans-serif; font-size: 22px; font-weight: 800; letter-spacing: -0.5px; }
+    .brand-name span { color: var(--accent); }
+    .enc-badge { display: flex; align-items: center; gap: 8px; background: rgba(0,229,160,0.07); border: 1px solid rgba(0,229,160,0.2); border-radius: 8px; padding: 8px 12px; font-size: 12px; color: var(--success); margin-bottom: 28px; }
+    .panel-title { font-family: 'Syne', sans-serif; font-size: 26px; font-weight: 700; margin-bottom: 6px; }
+    .panel-sub { font-size: 13px; color: var(--muted); margin-bottom: 28px; }
+    .field { margin-bottom: 18px; }
+    .field label { display: block; font-size: 12px; font-weight: 500; color: var(--muted); text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 8px; }
+    .input-wrap { position: relative; }
+    .input-wrap .icon { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); font-size: 15px; color: var(--muted); pointer-events: none; }
+    .input-wrap input { width: 100%; padding: 13px 14px 13px 40px; background: var(--input-bg); border: 1px solid var(--border); border-radius: 11px; color: var(--text); font-family: 'DM Sans', sans-serif; font-size: 14px; outline: none; transition: border-color 0.25s, box-shadow 0.25s; }
+    .input-wrap input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--glow); }
+    .input-wrap input::placeholder { color: #3a3d55; }
+    .toggle-pw { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); background: none; border: none; color: var(--muted); cursor: pointer; font-size: 14px; padding: 4px; }
+    .forgot { text-align: right; margin-top: -10px; margin-bottom: 18px; }
+    .forgot a { font-size: 12px; color: var(--accent); text-decoration: none; }
+    .btn-primary { width: 100%; padding: 14px; background: linear-gradient(135deg, var(--accent), var(--accent2)); border: none; border-radius: 12px; color: #fff; font-family: 'Syne', sans-serif; font-size: 15px; font-weight: 700; cursor: pointer; transition: transform 0.2s, box-shadow 0.2s; box-shadow: 0 6px 24px var(--glow); margin-top: 8px; }
+    .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 10px 32px var(--glow); }
+    .btn-primary:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+    .register-link { text-align: center; margin-top: 20px; font-size: 13px; color: var(--muted); }
+    .register-link a { color: var(--accent); text-decoration: none; font-weight: 500; }
+    .alert { display: none; padding: 11px 14px; border-radius: 9px; font-size: 13px; margin-top: 14px; font-weight: 500; }
+    .alert.error   { background: rgba(255,77,109,0.12); border:1px solid rgba(255,77,109,0.3); color: var(--error); }
+    .alert.success { background: rgba(0,229,160,0.10); border:1px solid rgba(0,229,160,0.3); color: var(--success); }
+    .alert.show    { display: block; }
+    @media (max-width: 480px) { .card { padding: 32px 24px; } }
+  </style>
+</head>
+<body>
+  <div class="grid-bg"></div>
+  <div class="card">
+    <div class="brand">
+      <div class="brand-icon">🛡️</div>
+      <div class="brand-name">Safe<span>Her</span></div>
+    </div>
+    <div class="enc-badge"><span>🔐</span> End-to-End Encrypted with AES-256 · CryptoJS</div>
+    <div class="panel-title">Welcome back</div>
+    <div class="panel-sub">Your safety, your privacy — always protected.</div>
+
+    <div class="field">
+      <label>Email</label>
+      <div class="input-wrap">
+        <span class="icon">✉️</span>
+        <input type="email" id="login-email" placeholder="you@example.com"
+               onkeydown="if(event.key==='Enter') login()"/>
+      </div>
+    </div>
+    <div class="field">
+      <label>Password</label>
+      <div class="input-wrap">
+        <span class="icon">🔑</span>
+        <input type="password" id="login-password" placeholder="Your password"
+               onkeydown="if(event.key==='Enter') login()"/>
+        <button class="toggle-pw" onclick="togglePw('login-password', this)">👁</button>
+      </div>
+    </div>
+
+    <div class="forgot"><a href="#" onclick="forgotPassword()">Forgot password?</a></div>
+    <button class="btn-primary" id="login-btn" onclick="login()">Sign In Securely</button>
+    <div class="register-link">Don't have an account? <a href="register.html">Register here</a></div>
+    <div class="alert" id="login-alert"></div>
+  </div>
+
+  <script src="auth.js"></script>
+  <script>
+    // ── Inline login function — doesn't depend on auth.js login() ──
+    // Overrides whatever auth.js defines to make sure it works correctly
+    async function login() {
+      const alertEl = document.getElementById('login-alert');
+      const btn     = document.getElementById('login-btn');
+      const email   = document.getElementById('login-email').value.trim();
+      const password = document.getElementById('login-password').value;
+
+      alertEl.className = 'alert';
+      alertEl.textContent = '';
+
+      if (!email)    { alertEl.className = 'alert error show'; alertEl.textContent = 'Please enter your email.'; return; }
+      if (!password) { alertEl.className = 'alert error show'; alertEl.textContent = 'Please enter your password.'; return; }
+
+      btn.disabled = true;
+      btn.textContent = '⏳ Signing in...';
+
+      try {
+        const cred = await firebase.auth().signInWithEmailAndPassword(email, password);
+        const uid  = cred.user.uid;
+
+        // Check if pattern is set
+        let hasPattern = false;
+        try {
+          const snap = await firebase.firestore().collection('users').doc(uid).get();
+          const data = snap.data() || {};
+          if (data.patternHash) {
+            sessionStorage.setItem('patternHash', data.patternHash);
+            hasPattern = true;
+          }
+        } catch(e) { console.warn('Firestore check failed:', e); }
+
+        alertEl.className = 'alert success show';
+        alertEl.textContent = '✅ Logged in! Redirecting...';
+
+        setTimeout(() => {
+          window.location.href = hasPattern ? 'sos.html?mode=verify' : 'sos.html';
+        }, 800);
+
+      } catch(err) {
+        btn.disabled = false;
+        btn.textContent = 'Sign In Securely';
+        const map = {
+          'auth/user-not-found':    'No account found with this email.',
+          'auth/wrong-password':    'Incorrect password. Try again.',
+          'auth/invalid-email':     'Please enter a valid email.',
+          'auth/too-many-requests': 'Too many attempts. Wait a moment.',
+          'auth/network-request-failed': 'Network error. Check your connection.',
+          'auth/invalid-credential': 'Invalid email or password.'
+        };
+        alertEl.className = 'alert error show';
+        alertEl.textContent = map[err.code] || ('Error: ' + err.message);
+      }
+    }
+
+    function togglePw(id, btn) {
+      const input = document.getElementById(id);
+      input.type = input.type === 'password' ? 'text' : 'password';
+      btn.textContent = input.type === 'password' ? '👁' : '🙈';
+    }
+
+    function forgotPassword() {
+      const email = document.getElementById('login-email').value.trim();
+      if (!email) {
+        const alertEl = document.getElementById('login-alert');
+        alertEl.className = 'alert error show';
+        alertEl.textContent = 'Enter your email above first.';
+        return;
+      }
+      firebase.auth().sendPasswordResetEmail(email).then(() => {
+        const alertEl = document.getElementById('login-alert');
+        alertEl.className = 'alert success show';
+        alertEl.textContent = '✅ Password reset email sent!';
+      }).catch(e => {
+        const alertEl = document.getElementById('login-alert');
+        alertEl.className = 'alert error show';
+        alertEl.textContent = 'Could not send reset email: ' + e.message;
+      });
+    }
+
+    // ── NO onAuthStateChanged here — removed completely ──
+    // Login button handles everything manually above
+
+    // ══ PWA AUTO-LOGIN ══
+    // If user is already logged in (Firebase session persisted),
+    // skip the login page entirely and go straight to voice detection.
+    firebase.auth().onAuthStateChanged(async function(user) {
+      if (!user) return; // not logged in → stay on login page
+
+      // Check if they've set a pattern
+      let hasPattern = sessionStorage.getItem("patternHash");
+      if (!hasPattern) {
+        try {
+          const snap = await firebase.firestore().collection("users").doc(user.uid).get();
+          const data = snap.data() || {};
+          if (data.patternHash) {
+            sessionStorage.setItem("patternHash", data.patternHash);
+            hasPattern = data.patternHash;
+          }
+          // Also cache emergency contacts
+          if (data.profile) {
+            try {
+              const bytes = CryptoJS.AES.decrypt(data.profile, "SafeHer_AES_Secret_Key_2024!");
+              const parsed = JSON.parse(bytes.toString(CryptoJS.enc.Utf8));
+              if (parsed.name) sessionStorage.setItem("userName", parsed.name);
+              if (parsed.emergencyContacts) sessionStorage.setItem("emergencyContacts", JSON.stringify(parsed.emergencyContacts));
+            } catch(e) {}
+          }
+        } catch(e) { console.warn("Firestore check failed:", e); }
+      }
+
+      // Already logged in → go straight to voice detection (skip login UI)
+      if (hasPattern) {
+        window.location.href = "sos.html?mode=voice";
+      } else {
+        // Logged in but no pattern set yet → set pattern first
+        window.location.href = "sos.html";
+      }
+    });
+  </script>
+</body>
+</html>

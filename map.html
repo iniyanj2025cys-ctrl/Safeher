@@ -1,0 +1,691 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>SafeHer | Safety Map</title>
+
+  <!-- Leaflet CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+  <!-- Google Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet"/>
+
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    :root {
+      --primary: #2C3E50;
+      --danger:  #E74C3C;
+      --safe:    #27AE60;
+      --warning: #F39C12;
+      --white:   #ffffff;
+      --card-bg: rgba(255,255,255,0.97);
+    }
+    body { font-family: 'Outfit', sans-serif; height: 100vh; overflow: hidden; }
+
+    /* NAVBAR */
+    .navbar {
+      position: fixed; top: 0; left: 0; right: 0;
+      z-index: 1000; background: var(--primary);
+      padding: 12px 20px; display: flex;
+      align-items: center; justify-content: space-between;
+      height: 56px; box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+    }
+    .navbar-brand { color: var(--white); font-size: 22px; font-weight: 700; }
+    .navbar-brand span { color: var(--danger); }
+    .back-btn {
+      color: var(--white); background: rgba(255,255,255,0.15);
+      border: none; padding: 6px 14px; border-radius: 20px;
+      font-family: 'Outfit', sans-serif; font-size: 14px; cursor: pointer;
+      transition: background 0.2s;
+    }
+    .back-btn:hover { background: rgba(255,255,255,0.25); }
+
+    /* MAP */
+    #map { position: fixed; top: 56px; left: 0; right: 0; bottom: 130px; z-index: 1; }
+
+    /* LEGEND */
+    .legend {
+      position: fixed; top: 70px; right: 12px;
+      z-index: 999; background: var(--card-bg);
+      border-radius: 12px; padding: 10px 14px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.15); font-size: 12px;
+    }
+    .legend-title { font-weight: 700; color: var(--primary); margin-bottom: 6px; font-size: 13px; }
+    .legend-item  { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; color: #555; }
+    .legend-dot   { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; }
+
+    /* BOTTOM PANEL */
+    .bottom-panel {
+      position: fixed; bottom: 0; left: 0; right: 0;
+      z-index: 1000; background: var(--card-bg);
+      border-radius: 24px 24px 0 0;
+      padding: 14px 20px 24px;
+      box-shadow: 0 -4px 20px rgba(0,0,0,0.1);
+    }
+    .panel-handle { width: 40px; height: 4px; background: #ddd; border-radius: 2px; margin: 0 auto 12px; }
+    .btn-row { display: flex; gap: 10px; margin-bottom: 10px; }
+    .btn-primary {
+      flex: 1; background: var(--primary); color: var(--white);
+      border: none; padding: 12px 6px; border-radius: 12px;
+      font-family: 'Outfit', sans-serif; font-size: 13px; font-weight: 600; cursor: pointer;
+      transition: opacity 0.2s;
+    }
+    .btn-primary:active { opacity: 0.8; }
+    .btn-danger {
+      flex: 1; background: var(--danger); color: var(--white);
+      border: none; padding: 12px 6px; border-radius: 12px;
+      font-family: 'Outfit', sans-serif; font-size: 13px; font-weight: 600; cursor: pointer;
+      transition: opacity 0.2s;
+    }
+    .btn-danger:active { opacity: 0.8; }
+    .btn-safe {
+      flex: 1; background: var(--safe); color: var(--white);
+      border: none; padding: 12px 6px; border-radius: 12px;
+      font-family: 'Outfit', sans-serif; font-size: 13px; font-weight: 600; cursor: pointer;
+      transition: opacity 0.2s;
+    }
+    .btn-safe:active { opacity: 0.8; }
+    .status-bar {
+      display: flex; align-items: center; gap: 8px;
+      background: #f8f9fa; border-radius: 10px;
+      padding: 8px 12px; font-size: 13px; color: #555;
+    }
+    .status-dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: var(--safe); flex-shrink: 0;
+      animation: pulse 1.5s infinite;
+    }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+    /* MODAL */
+    .modal-overlay {
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,0.5); z-index: 2000; align-items: flex-end;
+    }
+    .modal-overlay.active { display: flex; }
+    .modal {
+      background: var(--white); border-radius: 24px 24px 0 0;
+      padding: 24px 20px 32px; width: 100%;
+      animation: slideUp 0.3s ease;
+    }
+    @keyframes slideUp { from{transform:translateY(100%)} to{transform:translateY(0)} }
+    .modal-handle { width: 40px; height: 4px; background: #ddd; border-radius: 2px; margin: 0 auto 16px; }
+    .modal-title  { font-size: 18px; font-weight: 700; color: var(--primary); margin-bottom: 16px; }
+    .modal select, .modal textarea {
+      width: 100%; padding: 12px; border: 2px solid #eee;
+      border-radius: 12px; font-family: 'Outfit', sans-serif;
+      font-size: 14px; margin-bottom: 12px; outline: none;
+      color: #333;
+    }
+    .modal select:focus, .modal textarea:focus { border-color: var(--primary); }
+    .modal-buttons { display: flex; gap: 10px; }
+    .btn-cancel {
+      flex: 1; background: #eee; color: #555; border: none;
+      padding: 13px; border-radius: 12px;
+      font-family: 'Outfit', sans-serif; font-size: 14px; font-weight: 600; cursor: pointer;
+    }
+    .btn-submit {
+      flex: 1; background: var(--danger); color: var(--white); border: none;
+      padding: 13px; border-radius: 12px;
+      font-family: 'Outfit', sans-serif; font-size: 14px; font-weight: 600; cursor: pointer;
+    }
+
+    /* TOAST */
+    .toast {
+      position: fixed; top: 70px; left: 50%;
+      transform: translateX(-50%);
+      background: var(--primary); color: var(--white);
+      padding: 10px 20px; border-radius: 20px;
+      font-size: 13px; z-index: 9999;
+      display: none; white-space: nowrap;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+    }
+    .toast.show { display: block; }
+
+    /* ZONE WARNING */
+    .zone-warning {
+      display: none; position: fixed;
+      top: 70px; left: 12px; right: 12px; z-index: 999;
+      background: #fff3cd; border: 2px solid var(--warning);
+      border-radius: 12px; padding: 10px 14px;
+      font-size: 13px; color: #856404; font-weight: 600;
+      animation: fadeIn 0.3s ease;
+    }
+    .zone-warning.show { display: block; }
+    @keyframes fadeIn { from{opacity:0;transform:translateY(-6px)} to{opacity:1;transform:translateY(0)} }
+
+    /* DELETE MODAL LIST */
+    .delete-list { max-height: 220px; overflow-y: auto; margin-bottom: 14px; }
+    .delete-item {
+      display: flex; align-items: center; justify-content: space-between;
+      background: #f8f9fa; border-radius: 10px; padding: 10px 12px;
+      margin-bottom: 8px; font-size: 13px; color: #333;
+    }
+    .delete-item-info { flex: 1; }
+    .delete-item-reason { font-weight: 600; color: var(--primary); }
+    .delete-item-time { font-size: 11px; color: #888; margin-top: 2px; }
+    .btn-delete-item {
+      background: var(--danger); color: var(--white); border: none;
+      padding: 6px 12px; border-radius: 8px; font-family: 'Outfit', sans-serif;
+      font-size: 12px; font-weight: 600; cursor: pointer; flex-shrink: 0; margin-left: 10px;
+    }
+    .delete-empty { text-align: center; color: #888; font-size: 14px; padding: 20px 0; }
+    .btn-warning {
+      flex: 1; background: var(--warning); color: var(--white);
+      border: none; padding: 12px 6px; border-radius: 12px;
+      font-family: 'Outfit', sans-serif; font-size: 13px; font-weight: 600; cursor: pointer;
+      transition: opacity 0.2s;
+    }
+    .btn-warning:active { opacity: 0.8; }
+
+    /* Permanent label over admin-verified danger zones */
+    .zone-warn-label {
+      background: #E74C3C !important; color: #fff !important; border: none !important;
+      font-weight: 700; font-size: 11px; padding: 3px 8px; border-radius: 6px;
+      box-shadow: 0 2px 8px rgba(231,76,60,0.4);
+    }
+    .zone-warn-label::before { display: none; }
+  </style>
+</head>
+<body>
+
+  <!-- NAVBAR -->
+  <div class="navbar">
+    <button class="back-btn" onclick="window.location.href='home.html'">← Back</button>
+    <div class="navbar-brand">Safe<span>Her</span></div>
+    <button class="back-btn" onclick="locateUser()">📍 Me</button>
+  </div>
+
+  <!-- MAP -->
+  <div id="map"></div>
+
+  <!-- LEGEND -->
+  <div class="legend">
+    <div class="legend-title">🗺️ Zone Guide</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#E74C3C"></div> Dangerous</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#F39C12"></div> Moderate</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#27AE60"></div> Safe</div>
+  </div>
+
+  <!-- ZONE WARNING -->
+  <div class="zone-warning" id="zoneWarning">
+    ⚠️ You are near a reported unsafe zone! Stay alert.
+  </div>
+
+  <!-- TOAST -->
+  <div class="toast" id="toast"></div>
+
+  <!-- BOTTOM PANEL -->
+  <div class="bottom-panel">
+    <div class="panel-handle"></div>
+    <div class="btn-row">
+      <button class="btn-primary" onclick="locateUser()">📍 My Location</button>
+      <button class="btn-safe"    onclick="checkSafety()">🛡️ Check Safety</button>
+      <button class="btn-danger"  onclick="openReportModal()">⚠️ Report Zone</button>
+      <button class="btn-warning" onclick="openDeleteModal()">🗑️ Delete Report</button>
+    </div>
+    <div class="status-bar">
+      <div class="status-dot"></div>
+      <span id="statusText">Loading map...</span>
+    </div>
+  </div>
+
+  <!-- REPORT MODAL -->
+  <div class="modal-overlay" id="reportModal">
+    <div class="modal">
+      <div class="modal-handle"></div>
+      <div class="modal-title">⚠️ Report Unsafe Zone</div>
+      <select id="reportReason">
+        <option value="">Select reason...</option>
+        <option value="Poor lighting">🌑 Poor lighting</option>
+        <option value="Isolated road">🛤️ Isolated road</option>
+        <option value="Forest area">🌲 Forest/dark area</option>
+        <option value="Past incident">🚨 Past incident here</option>
+        <option value="Suspicious activity">👁️ Suspicious activity</option>
+      </select>
+      <textarea id="reportDesc" rows="3" placeholder="Describe briefly (optional)..."></textarea>
+      <div class="modal-buttons">
+        <button class="btn-cancel" onclick="closeReportModal()">Cancel</button>
+        <button class="btn-submit" onclick="submitReport()">Submit Report</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- DELETE MODAL -->
+  <div class="modal-overlay" id="deleteModal">
+    <div class="modal">
+      <div class="modal-handle"></div>
+      <div class="modal-title">🗑️ Delete My Reports</div>
+      <div class="delete-list" id="deleteList">
+        <div class="delete-empty">Loading your reports...</div>
+      </div>
+      <div class="modal-buttons">
+        <button class="btn-cancel" onclick="closeDeleteModal()">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- SCRIPTS: ORDER MATTERS -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
+
+  <!-- Firebase Firestore (NOT Realtime DB) -->
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+  <script src="risk-engine.js"></script>
+
+  <script>
+    // ── FIREBASE CONFIG ──────────────────────────────────
+    const firebaseConfig = {
+      apiKey:            "AIzaSyDrIm9fyKKMGsri8U6PJ3nh7Etp-cB07p8",
+      authDomain:        "safeher-app-ebd6e.firebaseapp.com",
+      projectId:         "safeher-app-ebd6e",
+      storageBucket:     "safeher-app-ebd6e.firebasestorage.app",
+      messagingSenderId: "815594120308",
+      appId:             "1:815594120308:web:f0acddd85edb2895f25d21"
+    };
+
+    if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+    const db   = firebase.firestore();
+    const auth = firebase.auth();
+
+    // ── VARIABLES ────────────────────────────────────────
+    var map            = null;
+    var userMarker     = null;
+    var heatLayer      = null;
+    var zoneLayers     = [];   // DBSCAN risk-zone circles + verified-zone circles
+    var userLocation   = null;
+    var reportLocation = null;
+    var heatmapReports = [];   // raw report objects: {lat,lng,reason,time}
+    var currentZones   = [];   // cached output of RiskEngine.mergeVerifiedZones()
+    var verifiedZones  = [];   // admin/team-confirmed danger zones (bypass clustering)
+
+    // ── MOCK DATA (shows on map until real reports come in) ─
+    // Mix of recent + older timestamps/reasons so decay & time-of-day weighting
+    // visibly differ on load instead of all reports looking identical.
+    var mockReports = [
+      { lat: 13.0827, lng: 80.2707, reason: 'Past incident',       time: daysAgoISO(2)  },
+      { lat: 13.0829, lng: 80.2709, reason: 'Suspicious activity', time: daysAgoISO(5)  },
+      { lat: 13.0825, lng: 80.2705, reason: 'Poor lighting',       time: daysAgoISO(10) },
+      { lat: 13.0900, lng: 80.2800, reason: 'Isolated road',       time: daysAgoISO(1)  },
+      { lat: 13.0750, lng: 80.2600, reason: 'Forest area',         time: daysAgoISO(30) },
+      { lat: 13.0860, lng: 80.2750, reason: 'Past incident',       time: daysAgoISO(3)  }
+    ];
+    function daysAgoISO(d) { return new Date(Date.now() - d * 86400000).toISOString(); }
+
+    // Fallback list used ONLY if the `dangerZones` Firestore collection is empty —
+    // guarantees the demo always has at least one unmissable "don't go there" zone
+    // even if nobody has reported/seeded real data yet. Edit lat/lng to match
+    // wherever you're demoing, or add real ones via Firestore -> collection 'dangerZones'.
+    var mockVerifiedZones = [
+      { lat: 13.0870, lng: 80.2790, radius: 180, label: 'Reported unsafe — avoid after dark' }
+    ];
+
+    // ── INIT MAP ─────────────────────────────────────────
+    function initMap() {
+      map = L.map('map').setView([13.0827, 80.2707], 14);
+
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap', maxZoom: 19
+      }).addTo(map);
+
+      // Tap on map = pick that location to report
+      map.on('click', function(e) {
+        reportLocation = { lat: e.latlng.lat, lng: e.latlng.lng };
+        openReportModal();
+      });
+
+      // Load mock heatmap immediately so map looks good
+      heatmapReports = mockReports;
+      verifiedZones = mockVerifiedZones;
+      renderHeatmap();
+      renderZones();
+
+      document.getElementById('statusText').textContent = 'Map loaded! Tap to report unsafe zone.';
+    }
+
+    // ── LOAD ADMIN-VERIFIED DANGER ZONES (always shown as high-risk) ──
+    function loadVerifiedZones() {
+      db.collection('dangerZones').onSnapshot(function(snapshot) {
+        if (!snapshot.empty) {
+          verifiedZones = [];
+          snapshot.forEach(function(doc) {
+            var z = doc.data();
+            if (z.lat && z.lng) {
+              verifiedZones.push({ lat: parseFloat(z.lat), lng: parseFloat(z.lng), radius: z.radius || 180, label: z.label || 'Marked unsafe area' });
+            }
+          });
+        } else {
+          verifiedZones = mockVerifiedZones;
+        }
+        renderZones();
+      }, function(err) {
+        console.warn("dangerZones read error:", err.message);
+        showToast("⚠️ Couldn't load shared danger zones (" + err.code + ")");
+        verifiedZones = mockVerifiedZones;
+        renderZones();
+      });
+    }
+
+    // ── LOAD HEATMAP FROM FIRESTORE ──────────────────────
+    function loadHeatmap() {
+      db.collection('heatmap').onSnapshot(function(snapshot) {
+        if (!snapshot.empty) {
+          heatmapReports = [];
+          snapshot.forEach(function(doc) {
+            var p = doc.data();
+            if (p.lat && p.lng) {
+              heatmapReports.push({
+                lat: parseFloat(p.lat),
+                lng: parseFloat(p.lng),
+                reason: p.reason || 'Past incident',
+                time: p.time || new Date().toISOString()
+              });
+            }
+          });
+        } else {
+          // No real data yet — keep mock data
+          heatmapReports = mockReports;
+        }
+        renderHeatmap();
+        renderZones();
+      }, function(err) {
+        console.warn("Firestore read error:", err.message);
+        showToast("⚠️ Couldn't load shared reports (" + err.code + ")");
+        // Still show mock data
+        heatmapReports = mockReports;
+        renderHeatmap();
+        renderZones();
+      });
+    }
+
+    // ── RENDER HEATMAP (weighted by RiskEngine: decay + time-of-day) ──
+    function renderHeatmap() {
+      if (heatLayer) map.removeLayer(heatLayer);
+      if (!heatmapReports.length) return;
+      var pts = RiskEngine.weightedHeatPoints(heatmapReports);
+      // leaflet.heat normalizes color against `max` (default 1.0). Our weights
+      // rarely get near 1.0 once decay/time-of-day are applied, so without this
+      // everything renders green. Stretch the gradient to the real current range.
+      var maxWeight = Math.max.apply(null, pts.map(function(p) { return p[2]; }).concat([0.05]));
+      heatLayer = L.heatLayer(pts, {
+        radius: 35, blur: 25, maxZoom: 17, max: maxWeight,
+        gradient: { 0.2: '#27AE60', 0.5: '#F39C12', 0.8: '#E74C3C' }
+      }).addTo(map);
+    }
+
+    // ── RENDER RISK ZONES (DBSCAN clusters + verified zones) ───
+    function renderZones() {
+      zoneLayers.forEach(function(l) { map.removeLayer(l); });
+      zoneLayers = [];
+      if (!heatmapReports.length && !verifiedZones.length) { currentZones = []; return; }
+
+      var computed = RiskEngine.buildZones(heatmapReports, { epsMeters: 150, minPts: 1 });
+      currentZones = RiskEngine.mergeVerifiedZones(computed, verifiedZones);
+
+      currentZones.forEach(function(z) {
+        if (z.verified) {
+          // Admin-confirmed danger zone — always max severity, styled distinctly
+          // from computed clusters so it reads as "we know this for a fact," not
+          // "the algorithm noticed a pattern."
+          var circle = L.circle([z.lat, z.lng], {
+            radius: z.radius, color: '#E74C3C', weight: 3, dashArray: '8,6',
+            fillColor: '#E74C3C', fillOpacity: 0.22
+          }).addTo(map).bindPopup(
+            '<b>🚫 Marked Unsafe Area</b><br>' + z.reasons.join(', ') + '<br><span style="color:#E74C3C;font-weight:600;">Avoid this area if possible</span>'
+          ).bindTooltip('🚫 Avoid this area', { permanent: true, direction: 'top', className: 'zone-warn-label' });
+          zoneLayers.push(circle);
+        } else {
+          var color = z.level === 'high' ? '#E74C3C' : z.level === 'medium' ? '#F39C12' : '#27AE60';
+          var label = z.level === 'high' ? '⚠️ High-risk zone' : z.level === 'medium' ? '⚠️ Medium-risk zone' : 'Low-risk zone';
+          var c2 = L.circle([z.lat, z.lng], {
+            radius: z.radius, color: color, weight: 2, fillColor: color, fillOpacity: 0.25
+          }).addTo(map).bindPopup(
+            '<b>' + label + '</b><br>' + z.reportCount + ' report(s) · ' + z.reasons.join(', ')
+          );
+          zoneLayers.push(c2);
+        }
+      });
+    }
+
+    // ── LOCATE USER ──────────────────────────────────────
+    function locateUser() {
+      if (!navigator.geolocation) {
+        showToast("GPS not supported on this device!");
+        return;
+      }
+      document.getElementById('statusText').textContent = 'Getting your location...';
+      showToast("📍 Getting location...");
+
+      navigator.geolocation.getCurrentPosition(
+        function(pos) {
+          userLocation = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+          map.setView([userLocation.lat, userLocation.lng], 15);
+
+          if (userMarker) {
+            userMarker.setLatLng([userLocation.lat, userLocation.lng]);
+          } else {
+            userMarker = L.circleMarker([userLocation.lat, userLocation.lng], {
+              radius: 14,
+              fillColor: '#2C3E50',
+              color: '#ffffff',
+              weight: 3,
+              fillOpacity: 1
+            }).addTo(map)
+              .bindPopup("<b>📍 You are here!</b>")
+              .openPopup();
+          }
+
+          document.getElementById('statusText').textContent = '📍 Live location active';
+          showToast("📍 Location found!");
+          checkNearbyZones();
+        },
+        function(err) {
+          console.warn("GPS error:", err.message);
+          showToast("⚠️ Allow location access in browser!");
+          document.getElementById('statusText').textContent = '⚠️ Location access denied!';
+        },
+        { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+      );
+    }
+
+    // ── CHECK SAFETY (button) ────────────────────────────
+    function checkSafety() {
+      if (!userLocation) {
+        showToast("Click 📍 My Location first!");
+        return;
+      }
+      checkNearbyZones();
+    }
+
+    // ── CHECK NEARBY UNSAFE ZONES (real distance vs DBSCAN zones) ──
+    function checkNearbyZones() {
+      if (!userLocation || !currentZones.length) return;
+      var nearby = currentZones.filter(function(z) {
+        return RiskEngine.haversine(userLocation.lat, userLocation.lng, z.lat, z.lng) <= (z.radius + 300);
+      });
+
+      var warning = document.getElementById('zoneWarning');
+      if (nearby.length > 0) {
+        var worst = nearby.sort(function(a, b) {
+          return ({high:2,medium:1,low:0})[b.level] - ({high:2,medium:1,low:0})[a.level];
+        })[0];
+        warning.classList.add('show');
+        document.getElementById('statusText').textContent =
+          '⚠️ ' + (worst.level === 'high' ? 'High' : worst.level === 'medium' ? 'Medium' : 'Low') +
+          '-risk zone nearby! Be careful!';
+        setTimeout(function() { warning.classList.remove('show'); }, 5000);
+      } else {
+        showToast("✅ Area looks safe!");
+        document.getElementById('statusText').textContent = '✅ Area looks safe!';
+      }
+    }
+
+    // ── OPEN REPORT MODAL ────────────────────────────────
+    function openReportModal() {
+      // Use user location if no map tap location
+      if (!reportLocation && userLocation) {
+        reportLocation = { lat: userLocation.lat, lng: userLocation.lng };
+      }
+      // If STILL no location, use map center
+      if (!reportLocation && map) {
+        var c = map.getCenter();
+        reportLocation = { lat: c.lat, lng: c.lng };
+      }
+      document.getElementById('reportModal').classList.add('active');
+    }
+
+    // ── CLOSE REPORT MODAL ───────────────────────────────
+    function closeReportModal() {
+      document.getElementById('reportModal').classList.remove('active');
+      document.getElementById('reportReason').value = '';
+      document.getElementById('reportDesc').value   = '';
+      reportLocation = null;
+    }
+
+    // ── SUBMIT REPORT TO FIRESTORE ───────────────────────
+    function submitReport() {
+      var reason = document.getElementById('reportReason').value;
+      var desc   = document.getElementById('reportDesc').value;
+
+      if (!reason) {
+        showToast("⚠️ Please select a reason!");
+        return;
+      }
+
+      var loc = reportLocation || userLocation || (function() {
+        var c = map.getCenter();
+        return { lat: c.lat, lng: c.lng };
+      })();
+
+      var reportData = {
+        lat:         loc.lat,
+        lng:         loc.lng,
+        reason:      reason,
+        description: desc || '',
+        userId:      (auth.currentUser ? auth.currentUser.uid : 'anonymous'),
+        time:        new Date().toISOString()
+      };
+
+      // ✅ Firestore .add()
+      db.collection('heatmap').add(reportData)
+        .then(function() {
+          showToast("✅ Report submitted! Map updating...");
+          closeReportModal();
+
+          // Optimistic local update: don't wait for the onSnapshot round-trip
+          // (which can be delayed, or silently blocked by security rules) —
+          // paint the new report/zone on THIS screen immediately.
+          heatmapReports.push({
+            lat: parseFloat(reportData.lat),
+            lng: parseFloat(reportData.lng),
+            reason: reportData.reason,
+            time: reportData.time
+          });
+          renderHeatmap();
+          renderZones();
+
+          // Add red marker at report spot
+          L.circleMarker([loc.lat, loc.lng], {
+            radius: 8, fillColor: '#E74C3C',
+            color: '#fff', weight: 2, fillOpacity: 0.9
+          }).addTo(map).bindPopup("⚠️ " + reason).openPopup();
+          // onSnapshot listener will also re-fire for other users viewing the
+          // map live — this local update just means WE don't have to wait for it.
+          checkNearbyZones();
+        })
+        .catch(function(err) {
+          console.error("Firestore error:", err);
+          showToast("❌ Submit failed! Check Firestore rules.");
+        });
+    }
+
+    // ── OPEN DELETE MODAL ────────────────────────────────
+    function openDeleteModal() {
+      var userId = auth.currentUser ? auth.currentUser.uid : null;
+      var list = document.getElementById('deleteList');
+      list.innerHTML = '<div class="delete-empty">Loading your reports...</div>';
+      document.getElementById('deleteModal').classList.add('active');
+
+      var query = userId
+        ? db.collection('heatmap').where('userId', '==', userId)
+        : db.collection('heatmap').where('userId', '==', 'anonymous');
+
+      query.get().then(function(snapshot) {
+        if (snapshot.empty) {
+          list.innerHTML = '<div class="delete-empty">You have no reports to delete.</div>';
+          return;
+        }
+        list.innerHTML = '';
+        snapshot.forEach(function(doc) {
+          var d = doc.data();
+          var date = d.time ? new Date(d.time).toLocaleString() : 'Unknown time';
+          var item = document.createElement('div');
+          item.className = 'delete-item';
+          item.innerHTML =
+            '<div class="delete-item-info">' +
+              '<div class="delete-item-reason">⚠️ ' + (d.reason || 'Report') + '</div>' +
+              '<div class="delete-item-time">' + date + '</div>' +
+              (d.description ? '<div class="delete-item-time">' + d.description + '</div>' : '') +
+            '</div>' +
+            '<button class="btn-delete-item" onclick="deleteReport(\'' + doc.id + '\', this)">Delete</button>';
+          list.appendChild(item);
+        });
+      }).catch(function(err) {
+        list.innerHTML = '<div class="delete-empty">❌ Could not load reports.</div>';
+        console.error(err);
+      });
+    }
+
+    // ── CLOSE DELETE MODAL ───────────────────────────────
+    function closeDeleteModal() {
+      document.getElementById('deleteModal').classList.remove('active');
+    }
+
+    // ── DELETE A SINGLE REPORT ───────────────────────────
+    function deleteReport(docId, btn) {
+      btn.textContent = '...';
+      btn.disabled = true;
+      db.collection('heatmap').doc(docId).delete()
+        .then(function() {
+          var item = btn.closest('.delete-item');
+          item.style.opacity = '0';
+          item.style.transition = 'opacity 0.3s';
+          setTimeout(function() {
+            item.remove();
+            var list = document.getElementById('deleteList');
+            if (!list.querySelector('.delete-item')) {
+              list.innerHTML = '<div class="delete-empty">All your reports have been deleted.</div>';
+            }
+          }, 300);
+          showToast("🗑️ Report deleted!");
+        })
+        .catch(function(err) {
+          btn.textContent = 'Delete';
+          btn.disabled = false;
+          showToast("❌ Delete failed! Check permissions.");
+          console.error(err);
+        });
+    }
+
+    // ── SHOW TOAST ───────────────────────────────────────
+    function showToast(msg) {
+      var t = document.getElementById('toast');
+      t.textContent = msg;
+      t.classList.add('show');
+      setTimeout(function() { t.classList.remove('show'); }, 2500);
+    }
+
+    // ── START ────────────────────────────────────────────
+    // Auth guard
+    auth.onAuthStateChanged(function(user) {
+      if (!user) { window.location.href = 'index.html'; }
+    });
+    initMap();
+    loadHeatmap();
+    loadVerifiedZones();
+    locateUser();
+  </script>
+</body>
+</html>

@@ -1,0 +1,1710 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>SafeHer — SOS</title>
+  <link rel="manifest" href="manifest.json"/>
+  <meta name="mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+  <meta name="apple-mobile-web-app-title" content="SafeHer"/>
+  <meta name="theme-color" content="#ff2d6b"/>
+  <!-- PWA Icons for iOS -->
+  <link rel="apple-touch-icon" href="icons/icon-192.png"/>
+  <style>
+    /* PWA Install Banner */
+    #pwa-install-banner {
+      display: none;
+      position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+      z-index: 99999; width: calc(100% - 32px); max-width: 380px;
+      background: #0f1120; border: 1px solid rgba(255,45,107,0.4);
+      border-radius: 16px; padding: 14px 18px;
+      align-items: center; justify-content: space-between; gap: 12px;
+      box-shadow: 0 8px 40px rgba(255,45,107,0.2);
+      font-family: 'DM Sans', sans-serif;
+      animation: slideUp 0.4s cubic-bezier(0.34,1.56,0.64,1);
+    }
+    @keyframes slideUp { from { transform: translateX(-50%) translateY(80px); opacity:0; } to { transform: translateX(-50%) translateY(0); opacity:1; } }
+    #pwa-install-banner .banner-text { flex: 1; }
+    #pwa-install-banner .banner-title { font-weight: 700; font-size: 13px; color: #f0f0f8; margin-bottom: 2px; }
+    #pwa-install-banner .banner-sub   { font-size: 11px; color: #6b6f8c; }
+    #pwa-install-banner .btn-install  {
+      padding: 9px 18px; background: linear-gradient(135deg,#ff2d6b,#ff7043);
+      border: none; border-radius: 10px; color: #fff;
+      font-family: 'Syne', sans-serif; font-size: 13px; font-weight: 700;
+      cursor: pointer; white-space: nowrap;
+    }
+    #pwa-install-banner .btn-dismiss-banner {
+      background: none; border: none; color: #6b6f8c;
+      font-size: 18px; cursor: pointer; padding: 4px; line-height: 1;
+    }
+  </style>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
+  <script>
+    if (!firebase.apps.length) {
+      firebase.initializeApp({
+        apiKey: "AIzaSyDrIm9fyKKMGsri8U6PJ3nh7Etp-cB07p8",
+        authDomain: "safeher-app-ebd6e.firebaseapp.com",
+        projectId: "safeher-app-ebd6e",
+        storageBucket: "safeher-app-ebd6e.firebasestorage.app",
+        messagingSenderId: "815594120308",
+        appId: "1:815594120308:web:f0acddd85edb2895f25d21"
+      });
+    }
+    const auth = firebase.auth();
+    const db   = firebase.firestore();
+  </script>
+  <style>
+    :root {
+      --bg:#07080f; --surface:#0f1120; --surface2:#131629;
+      --border:#1e2140; --border2:#2a2e50;
+      --accent:#ff2d6b; --accent2:#ff7043; --glow:rgba(255,45,107,0.3);
+      --text:#f0f0f8; --muted:#6b6f8c; --success:#00e5a0;
+      --warn:#f0b429; --error:#ff4d6d;
+    }
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+    body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden;}
+    .view{display:none;min-height:100vh;}
+    .view.active{display:flex;flex-direction:column;}
+    .grid-bg{position:fixed;inset:0;background-image:linear-gradient(rgba(255,45,107,0.03) 1px,transparent 1px),linear-gradient(90deg,rgba(255,45,107,0.03) 1px,transparent 1px);background-size:40px 40px;pointer-events:none;}
+    .blob{position:fixed;border-radius:50%;pointer-events:none;z-index:0;animation:blob 10s ease-in-out infinite alternate;}
+    .blob1{width:500px;height:500px;top:-150px;left:-150px;background:radial-gradient(circle,rgba(255,45,107,0.10) 0%,transparent 70%);}
+    .blob2{width:400px;height:400px;bottom:-100px;right:-100px;background:radial-gradient(circle,rgba(255,112,67,0.08) 0%,transparent 70%);animation-delay:-5s;}
+    @keyframes blob{from{transform:scale(1) translate(0,0);}to{transform:scale(1.2) translate(30px,20px);}}
+
+    /* NAVBAR */
+    .navbar{position:relative;z-index:10;display:flex;align-items:center;justify-content:space-between;padding:18px 24px;border-bottom:1px solid var(--border);background:rgba(7,8,15,0.8);backdrop-filter:blur(12px);}
+    .brand{display:flex;align-items:center;gap:10px;}
+    .brand-icon{width:36px;height:36px;background:linear-gradient(135deg,var(--accent),var(--accent2));border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:16px;box-shadow:0 0 16px var(--glow);}
+    .brand-name{font-family:'Syne',sans-serif;font-size:20px;font-weight:800;}
+    .brand-name span{color:var(--accent);}
+    .nav-back{background:none;border:1px solid var(--border);border-radius:8px;color:var(--muted);padding:6px 14px;font-size:13px;cursor:pointer;transition:all 0.2s;font-family:'DM Sans',sans-serif;}
+    .nav-back:hover{border-color:var(--accent);color:var(--text);}
+
+    /* PATTERN CANVAS */
+    .pattern-wrap{position:relative;touch-action:none;user-select:none;}
+    .pattern-canvas{position:absolute;top:0;left:0;pointer-events:none;}
+    .dot-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:0;padding:20px;}
+    .dot-cell{display:flex;align-items:center;justify-content:center;width:100%;aspect-ratio:1;}
+    .dot-outer{width:60px;height:60px;border-radius:50%;display:flex;align-items:center;justify-content:center;position:relative;transition:transform 0.15s;}
+    .dot-inner{width:20px;height:20px;border-radius:50%;background:var(--border2);transition:all 0.15s;}
+    .dot-outer.active .dot-inner{background:var(--accent);box-shadow:0 0 0 8px rgba(255,45,107,0.2),0 0 20px rgba(255,45,107,0.4);transform:scale(1.3);}
+    .dot-outer.active-confirm .dot-inner{background:var(--success);box-shadow:0 0 0 8px rgba(0,229,160,0.2),0 0 20px rgba(0,229,160,0.4);transform:scale(1.3);}
+    .dot-outer.active-verify .dot-inner{background:var(--accent);box-shadow:0 0 0 8px rgba(255,45,107,0.2),0 0 20px rgba(255,45,107,0.4);transform:scale(1.3);}
+
+    /* ══ VIEW 1: SETTINGS ══ */
+    #view-settings{align-items:center;}
+    .settings-body{position:relative;z-index:10;width:100%;max-width:420px;margin:0 auto;padding:28px 20px 60px;}
+    .settings-title{font-family:'Syne',sans-serif;font-size:24px;font-weight:700;margin-bottom:6px;}
+    .settings-sub{font-size:13px;color:var(--muted);margin-bottom:28px;line-height:1.5;}
+    .step-indicator{display:flex;align-items:center;gap:8px;margin-bottom:24px;}
+    .stp{display:flex;align-items:center;gap:6px;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.8px;}
+    .stp-num{width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;}
+    .stp.active .stp-num{background:var(--accent);color:#fff;box-shadow:0 0 10px var(--glow);}
+    .stp.done .stp-num{background:var(--success);color:#07080f;}
+    .stp.pending .stp-num{background:var(--border);color:var(--muted);}
+    .stp.active{color:var(--text);}
+    .stp.done{color:var(--success);}
+    .stp.pending{color:var(--muted);}
+    .stp-line{flex:1;height:1px;background:var(--border);}
+    .pattern-card{background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:20px;margin-bottom:20px;box-shadow:0 8px 40px rgba(0,0,0,0.4);}
+    .pattern-label{font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:8px;text-align:center;}
+    .pattern-hint{font-size:13px;color:var(--muted);text-align:center;margin-top:12px;min-height:20px;transition:color 0.2s;}
+    .pattern-hint.ok{color:var(--success);}
+    .pattern-hint.err{color:var(--error);}
+    .btn-primary{width:100%;padding:14px;background:linear-gradient(135deg,var(--accent),var(--accent2));border:none;border-radius:12px;color:#fff;font-family:'Syne',sans-serif;font-size:15px;font-weight:700;cursor:pointer;transition:transform 0.2s,box-shadow 0.2s,opacity 0.2s;box-shadow:0 6px 24px var(--glow);}
+    .btn-primary:hover:not(:disabled){transform:translateY(-1px);box-shadow:0 10px 32px var(--glow);}
+    .btn-primary:disabled{opacity:0.4;cursor:not-allowed;}
+    .btn-ghost{width:100%;padding:12px;background:transparent;border:1px solid var(--border);border-radius:12px;color:var(--muted);font-family:'DM Sans',sans-serif;font-size:14px;cursor:pointer;margin-top:10px;transition:border-color 0.2s,color 0.2s;}
+    .btn-ghost:hover{border-color:var(--accent);color:var(--text);}
+
+    /* ══ VIEW 2: HOME VERIFY ══ */
+    #view-verify{align-items:center;justify-content:center;}
+    .verify-body{position:relative;z-index:10;width:100%;max-width:380px;padding:20px;text-align:center;}
+    .verify-icon{width:72px;height:72px;border-radius:20px;background:linear-gradient(135deg,var(--accent),var(--accent2));display:flex;align-items:center;justify-content:center;font-size:32px;margin:0 auto 16px;box-shadow:0 0 40px var(--glow);animation:pulse-icon 2s ease-in-out infinite;}
+    @keyframes pulse-icon{0%,100%{box-shadow:0 0 40px var(--glow);}50%{box-shadow:0 0 60px rgba(255,45,107,0.5);}}
+    .verify-title{font-family:'Syne',sans-serif;font-size:22px;font-weight:700;margin-bottom:6px;}
+    .verify-sub{font-size:13px;color:var(--muted);margin-bottom:8px;line-height:1.5;}
+    .sos-note{background:rgba(255,45,107,0.08);border:1px solid rgba(255,45,107,0.25);border-radius:10px;padding:10px 14px;font-size:12px;color:var(--accent);margin-bottom:20px;}
+    .verify-card{background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:16px;box-shadow:0 8px 40px rgba(0,0,0,0.4);}
+    .verify-attempts{font-size:12px;color:var(--muted);margin-top:12px;}
+    .verify-attempts span{color:var(--warn);font-weight:600;}
+
+    /* ══ VIEW 3: COUNTDOWN ══ */
+    #view-countdown{align-items:center;justify-content:center;background:radial-gradient(ellipse at center,rgba(231,76,60,0.15) 0%,transparent 70%);}
+    .countdown-body{position:relative;z-index:10;text-align:center;padding:24px;}
+    .countdown-ring{position:relative;width:200px;height:200px;margin:0 auto 28px;}
+    .countdown-ring svg{transform:rotate(-90deg);}
+    .ring-bg{fill:none;stroke:rgba(231,76,60,0.15);stroke-width:8;}
+    .ring-bar{fill:none;stroke:#E74C3C;stroke-width:8;stroke-linecap:round;stroke-dasharray:565;stroke-dashoffset:0;transition:stroke-dashoffset 1s linear;}
+    .countdown-num{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-family:'Syne',sans-serif;font-size:64px;font-weight:800;color:#E74C3C;line-height:1;text-shadow:0 0 30px rgba(231,76,60,0.6);}
+    .countdown-label{font-family:'Syne',sans-serif;font-size:22px;font-weight:700;color:#f0f0f8;margin-bottom:8px;}
+    .countdown-sub{font-size:14px;color:var(--muted);margin-bottom:32px;}
+    .btn-cancel{padding:14px 40px;background:transparent;border:2px solid #E74C3C;border-radius:12px;color:#E74C3C;font-family:'Syne',sans-serif;font-size:15px;font-weight:700;cursor:pointer;transition:all 0.2s;}
+    .btn-cancel:hover{background:rgba(231,76,60,0.1);}
+
+    /* ══ VIEW 4: SOS ACTIVE ══ */
+    #view-sos-active{align-items:center;justify-content:center;background:var(--bg);}
+    .sos-active-body{position:relative;z-index:10;text-align:center;padding:40px 24px;max-width:360px;margin:0 auto;}
+    .fake-screen{background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:28px;box-shadow:0 8px 40px rgba(0,0,0,0.5);}
+    .fake-screen .time-big{font-family:'Syne',sans-serif;font-size:52px;font-weight:800;margin-bottom:4px;}
+    .fake-screen .date-small{font-size:14px;color:var(--muted);margin-bottom:28px;}
+    .fake-app-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:24px;}
+    .fake-app{display:flex;flex-direction:column;align-items:center;gap:6px;background:var(--surface2);border-radius:14px;padding:12px 6px;font-size:22px;}
+    .fake-app span{font-size:10px;color:var(--muted);}
+    .sos-status-badge{display:flex;align-items:center;gap:8px;justify-content:center;background:rgba(231,76,60,0.1);border:1px solid rgba(231,76,60,0.3);border-radius:10px;padding:10px 16px;margin-top:20px;font-size:13px;color:#E74C3C;font-weight:600;}
+    .pulse-dot{width:8px;height:8px;background:#E74C3C;border-radius:50%;animation:pulse-live 1s ease-in-out infinite;}
+    @keyframes pulse-live{0%,100%{transform:scale(1);opacity:1;}50%{transform:scale(1.5);opacity:0.6;}}
+    .btn-dismiss{margin-top:20px;padding:10px 28px;background:transparent;border:1px solid var(--border);border-radius:10px;color:var(--muted);font-size:13px;cursor:pointer;font-family:'DM Sans',sans-serif;}
+
+    /* LOADING */
+    .loading-overlay{display:none;position:fixed;inset:0;background:rgba(7,8,15,0.85);z-index:999;align-items:center;justify-content:center;flex-direction:column;gap:16px;}
+    .loading-overlay.show{display:flex;}
+    .spinner{width:40px;height:40px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin 0.8s linear infinite;}
+    @keyframes spin{to{transform:rotate(360deg);}}
+    .loading-msg{font-size:14px;color:var(--muted);}
+
+    /* TOAST */
+    .toast{position:fixed;bottom:30px;left:50%;transform:translateX(-50%) translateY(80px);background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:12px 20px;font-size:13px;font-weight:500;z-index:9999;transition:transform 0.4s cubic-bezier(0.34,1.56,0.64,1),opacity 0.4s;opacity:0;max-width:320px;text-align:center;pointer-events:none;box-shadow:0 8px 32px rgba(0,0,0,0.5);}
+    .toast.show{transform:translateX(-50%) translateY(0);opacity:1;}
+    .toast.success{border-color:rgba(0,229,160,0.4);color:var(--success);}
+    .toast.error{border-color:rgba(255,77,109,0.4);color:var(--error);}
+    .toast.warn{border-color:rgba(240,180,41,0.4);color:var(--warn);}
+
+    /* ══ VIEW 5: VOICE DETECTION ══ */
+    #view-voice{align-items:center;justify-content:center;background:var(--bg);}
+    .voice-body{position:relative;z-index:10;text-align:center;padding:40px 24px;max-width:380px;width:100%;}
+    .voice-title{font-family:'Syne',sans-serif;font-size:26px;font-weight:800;margin-bottom:8px;}
+    .voice-sub{font-size:13px;color:var(--muted);margin-bottom:36px;line-height:1.6;}
+
+    /* mic orb */
+    .mic-orb-wrap{position:relative;width:180px;height:180px;margin:0 auto 36px;display:flex;align-items:center;justify-content:center;}
+    .mic-ring{position:absolute;border-radius:50%;border:2px solid rgba(255,45,107,0.2);animation:ring-expand 2s ease-out infinite;}
+    .mic-ring:nth-child(1){width:180px;height:180px;animation-delay:0s;}
+    .mic-ring:nth-child(2){width:140px;height:140px;animation-delay:0.4s;}
+    .mic-ring:nth-child(3){width:100px;height:100px;animation-delay:0.8s;}
+    @keyframes ring-expand{0%{transform:scale(0.85);opacity:0.8;}100%{transform:scale(1.15);opacity:0;}}
+    .mic-orb{position:relative;z-index:2;width:80px;height:80px;border-radius:50%;
+      background:linear-gradient(135deg,var(--accent),var(--accent2));
+      display:flex;align-items:center;justify-content:center;font-size:32px;
+      box-shadow:0 0 40px rgba(255,45,107,0.5);
+      transition:transform 0.15s,box-shadow 0.15s;}
+    .mic-orb.listening{animation:mic-pulse 0.6s ease-in-out infinite alternate;}
+    .mic-orb.paused{background:linear-gradient(135deg,#333,#444);box-shadow:0 0 20px rgba(0,0,0,0.3);}
+    @keyframes mic-pulse{from{transform:scale(1);box-shadow:0 0 40px rgba(255,45,107,0.5);}to{transform:scale(1.12);box-shadow:0 0 60px rgba(255,45,107,0.8);}}
+
+    /* volume bars */
+    .vol-bars{display:flex;align-items:flex-end;justify-content:center;gap:4px;height:40px;margin-bottom:20px;}
+    .vol-bar{width:5px;border-radius:3px;background:var(--accent);opacity:0.3;transition:height 0.1s,opacity 0.1s;}
+    .vol-bar.active{opacity:1;}
+
+    .voice-status{font-size:14px;font-weight:600;color:var(--text);margin-bottom:6px;min-height:22px;}
+    .voice-transcript{font-size:12px;color:var(--muted);min-height:18px;margin-bottom:28px;font-style:italic;}
+
+    .keywords-row{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-bottom:32px;}
+    .kw-badge{padding:5px 12px;border-radius:20px;font-size:11px;font-weight:600;
+      background:rgba(255,45,107,0.08);border:1px solid rgba(255,45,107,0.2);color:var(--accent);
+      text-transform:uppercase;letter-spacing:0.6px;transition:all 0.2s;}
+    .kw-badge.triggered{background:rgba(255,45,107,0.25);border-color:var(--accent);
+      box-shadow:0 0 12px rgba(255,45,107,0.4);transform:scale(1.1);}
+
+    .voice-controls{display:flex;gap:12px;justify-content:center;}
+    .btn-voice-toggle{padding:12px 28px;border-radius:12px;border:none;cursor:pointer;
+      font-family:'Syne',sans-serif;font-size:14px;font-weight:700;transition:all 0.2s;
+      background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;
+      box-shadow:0 4px 20px rgba(255,45,107,0.3);}
+    .btn-voice-toggle:hover{transform:translateY(-1px);}
+    .btn-voice-toggle.stop-btn{background:transparent;border:1px solid var(--border);color:var(--muted);}
+    .btn-voice-toggle.stop-btn:hover{border-color:var(--accent);color:var(--text);}
+
+    .voice-note{margin-top:24px;padding:12px 16px;background:rgba(255,45,107,0.06);
+      border:1px solid rgba(255,45,107,0.15);border-radius:10px;font-size:11px;color:var(--muted);line-height:1.6;}
+    .voice-note strong{color:var(--accent);}
+  </style>
+</head>
+<body>
+<div class="grid-bg"></div>
+<div class="blob blob1"></div>
+<div class="blob blob2"></div>
+
+<div class="loading-overlay" id="loading-overlay">
+  <div class="spinner"></div>
+  <div class="loading-msg" id="loading-msg">Loading...</div>
+</div>
+
+<!-- ══ VIEW 1: SETTINGS — Set Pattern ══ -->
+<div class="view" id="view-settings">
+  <nav class="navbar">
+    <div class="brand">
+      <div class="brand-icon">🛡️</div>
+      <div class="brand-name">Safe<span>Her</span></div>
+    </div>
+    <button class="nav-back" onclick="window.location.href='home.html'">← Dashboard</button>
+  </nav>
+  <div class="settings-body">
+    <div class="settings-title">⚙️ SOS Pattern Setup</div>
+    <div class="settings-sub">Draw a secret drag pattern of at least 4 dots.<br>This will be your silent SOS trigger!</div>
+    <div class="step-indicator">
+      <div class="stp active" id="stp1"><div class="stp-num">1</div><span>Draw</span></div>
+      <div class="stp-line"></div>
+      <div class="stp pending" id="stp2"><div class="stp-num">2</div><span>Confirm</span></div>
+    </div>
+    <div class="pattern-card">
+      <div class="pattern-label" id="set-label">Draw your SOS pattern</div>
+      <div class="pattern-wrap" id="set-wrap">
+        <canvas class="pattern-canvas" id="set-canvas"></canvas>
+        <div class="dot-grid" id="set-grid"></div>
+      </div>
+      <div class="pattern-hint" id="set-hint">Hold and drag across at least 4 dots</div>
+    </div>
+    <button class="btn-primary" id="btn-continue" disabled onclick="goConfirm()">Continue →</button>
+    <button class="btn-ghost" onclick="resetSet()">Clear Pattern</button>
+  </div>
+</div>
+
+<!-- ══ VIEW 2: HOME VERIFY — Draw to trigger SOS ══ -->
+<div class="view" id="view-verify">
+  <nav class="navbar">
+    <div class="brand">
+      <div class="brand-icon">🛡️</div>
+      <div class="brand-name">Safe<span>Her</span></div>
+    </div>
+    <button class="nav-back" onclick="window.location.href='home.html'">← Back</button>
+  </nav>
+  <div style="flex:1;display:flex;align-items:center;justify-content:center;">
+    <div class="verify-body">
+      <div class="verify-icon">🚨</div>
+      <div class="verify-title">SOS Trigger</div>
+      <div class="verify-sub">Draw your secret pattern to send an emergency alert.</div>
+      <div class="sos-note">⚠️ Drawing the correct pattern will immediately alert your emergency contacts and all SafeHer users!</div>
+      <div class="verify-card">
+        <div class="pattern-label">Draw your pattern</div>
+        <div class="pattern-wrap" id="ver-wrap">
+          <canvas class="pattern-canvas" id="ver-canvas"></canvas>
+          <div class="dot-grid" id="ver-grid"></div>
+        </div>
+        <div class="pattern-hint" id="ver-hint">Hold and drag to draw pattern</div>
+      </div>
+      <div class="verify-attempts">Wrong attempts: <span id="attempt-count">0</span> / 5</div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ VIEW 3: COUNTDOWN ══ -->
+<div class="view" id="view-countdown">
+  <div class="countdown-body">
+    <div class="countdown-ring">
+      <svg width="200" height="200" viewBox="0 0 200 200">
+        <circle class="ring-bg" cx="100" cy="100" r="90"/>
+        <circle class="ring-bar" id="ring-bar" cx="100" cy="100" r="90"/>
+      </svg>
+      <div class="countdown-num" id="countdown-num">10</div>
+    </div>
+    <div class="countdown-label">🚨 SOS Sending In...</div>
+    <div class="countdown-sub">Emergency contacts will be alerted.<br>Tap cancel within 10 seconds to stop.</div>
+    <button class="btn-cancel" onclick="cancelSOS()">✕ Cancel SOS</button>
+  </div>
+</div>
+
+<!-- ══ VIEW 4: SOS ACTIVE (fake screen) ══ -->
+<div class="view" id="view-sos-active">
+  <div class="sos-active-body">
+    <div class="fake-screen">
+      <div class="time-big" id="fake-time">--:--</div>
+      <div class="date-small" id="fake-date">Loading...</div>
+      <div class="fake-app-grid">
+        <div class="fake-app">📷<span>Camera</span></div>
+        <div class="fake-app">🎵<span>Music</span></div>
+        <div class="fake-app">🗺️<span>Maps</span></div>
+        <div class="fake-app">📞<span>Phone</span></div>
+        <div class="fake-app">💬<span>Messages</span></div>
+        <div class="fake-app">📰<span>News</span></div>
+        <div class="fake-app">🛒<span>Shop</span></div>
+        <div class="fake-app">⚙️<span>Settings</span></div>
+      </div>
+      <div class="sos-status-badge">
+        <div class="pulse-dot"></div>
+        SOS Active — Help is on the way
+      </div>
+    </div>
+    <button class="btn-dismiss" onclick="window.location.href='home.html'">Return to Dashboard</button>
+  </div>
+</div>
+
+<!-- ══ VIEW 5: VOICE DETECTION ══ -->
+<div class="view" id="view-voice">
+  <nav class="navbar">
+    <div class="brand">
+      <div class="brand-icon">🛡️</div>
+      <div class="brand-name">Safe<span>Her</span></div>
+    </div>
+    <button class="nav-back" onclick="window.location.href='home.html'">← Dashboard</button>
+  </nav>
+  <div style="flex:1;display:flex;align-items:center;justify-content:center;">
+    <div class="voice-body">
+      <div class="voice-title">🎤 Voice SOS</div>
+      <div class="voice-sub">Shout any keyword below to instantly trigger SOS.<br/>Keep this page open — it's always listening for you.</div>
+
+      <div class="mic-orb-wrap">
+        <div class="mic-ring"></div>
+        <div class="mic-ring"></div>
+        <div class="mic-ring"></div>
+        <div class="mic-orb" id="mic-orb">🎤</div>
+      </div>
+
+      <div class="vol-bars" id="vol-bars">
+        <div class="vol-bar" style="height:8px"></div>
+        <div class="vol-bar" style="height:14px"></div>
+        <div class="vol-bar" style="height:20px"></div>
+        <div class="vol-bar" style="height:28px"></div>
+        <div class="vol-bar" style="height:36px"></div>
+        <div class="vol-bar" style="height:28px"></div>
+        <div class="vol-bar" style="height:20px"></div>
+        <div class="vol-bar" style="height:14px"></div>
+        <div class="vol-bar" style="height:8px"></div>
+      </div>
+
+      <div class="voice-status" id="voice-status">Starting microphone…</div>
+      <div class="voice-transcript" id="voice-transcript">Heard: —</div>
+
+      <div class="keywords-row">
+        <div class="kw-badge" id="kw-help">Help</div>
+        <div class="kw-badge" id="kw-sos">SOS</div>
+        <div class="kw-badge" id="kw-bachao">Bachao</div>
+        <div class="kw-badge" id="kw-emergency">Emergency</div>
+        <div class="kw-badge" id="kw-save">Save me</div>
+      </div>
+
+      <div class="voice-controls">
+        <button class="btn-voice-toggle" id="btn-voice-toggle" onclick="toggleVoice()">⏸ Pause Listening</button>
+      </div>
+
+      <div class="voice-note">
+        <strong>How it works:</strong> Mic listens continuously while this page is open.
+        Shout any keyword → 10-second countdown → SOS sent to all your emergency contacts with your live location.
+        Works best with headphones or loud voice.
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<!-- PWA Install Banner — shown automatically on Android Chrome -->
+<div id="pwa-install-banner">
+  <div style="font-size:28px;">🛡️</div>
+  <div class="banner-text">
+    <div class="banner-title">Install SafeHer</div>
+    <div class="banner-sub">Add to home screen — works offline</div>
+  </div>
+  <button class="btn-install" onclick="installPWA()">Install</button>
+  <button class="btn-dismiss-banner" onclick="this.closest('#pwa-install-banner').style.display='none'">✕</button>
+</div>
+
+<script>
+// ══════════════════════════════════════
+//  YOUR EMAILJS KEYS
+// ══════════════════════════════════════
+const EMAILJS_SERVICE_ID  = "EMAILJS_SERVICE_ID";
+const EMAILJS_TEMPLATE_ID = "EMAILJS_TEMPLATE_ID";
+const EMAILJS_PUBLIC_KEY  = "EMAILJS_PUBLIC_KEY";
+
+// ══════════════════════════════════════
+//  STATE
+// ══════════════════════════════════════
+let currentUser    = null;
+let userLocation   = null;
+let setPattern     = [];
+let confirmPattern = [];
+let verPattern     = [];
+let isConfirmStep  = false;
+let countdownTimer = null;
+let countdownSec   = 10;
+let sosTriggered   = false;
+let verAttempts    = 0;
+const MIN_DOTS     = 4;
+const MAX_ATTEMPTS = 5;
+
+let setDotCenters = [];
+let verDotCenters = [];
+
+// ══════════════════════════════════════
+//  🔐 E2E LOCATION ENCRYPTION
+//  AES-256 via CryptoJS. Key derived from
+//  user UID — only their device decrypts.
+// ══════════════════════════════════════
+let _encKey = null;
+
+function setEncryptionKey(uid) {
+  _encKey = CryptoJS.SHA256(uid + '_safeher_loc_v1').toString();
+}
+
+function encryptLocation(locationObj) {
+  if (!_encKey) return JSON.stringify(locationObj); // fallback plain if key not ready
+  try {
+    return CryptoJS.AES.encrypt(JSON.stringify(locationObj), _encKey).toString();
+  } catch(e) { return JSON.stringify(locationObj); }
+}
+
+function decryptLocation(ciphertext) {
+  if (!_encKey || !ciphertext) return null;
+  try {
+    const bytes = CryptoJS.AES.decrypt(ciphertext, _encKey);
+    const plain = bytes.toString(CryptoJS.enc.Utf8);
+    if (!plain) return null;
+    return JSON.parse(plain);
+  } catch(e) {
+    // Try plain JSON fallback (legacy)
+    try { return JSON.parse(ciphertext); } catch(e2) { return null; }
+  }
+}
+
+function saveLocationEncrypted(locationObj) {
+  const cipher = encryptLocation(locationObj);
+  localStorage.setItem('safeher_sos_location', cipher);
+}
+
+// ══════════════════════════════════════
+//  INIT
+// ══════════════════════════════════════
+document.addEventListener("DOMContentLoaded", async () => {
+  emailjs.init(EMAILJS_PUBLIC_KEY);
+  updateFakeClock();
+  setInterval(updateFakeClock, 1000);
+  startGPS();
+
+  // Real Firebase auth check
+  auth.onAuthStateChanged(async function(user) {
+    if (!user) { window.location.href = "index.html"; return; }
+
+    currentUser = user;
+
+    // Restore session data
+    const storedName = sessionStorage.getItem("userName");
+    if (storedName) currentUser.displayName = storedName;
+
+    // Set AES key from real UID
+    setEncryptionKey(currentUser.uid);
+
+    // Also fetch patternHash from Firestore if not in session
+    if (!sessionStorage.getItem("patternHash")) {
+      try {
+        const snap = await db.collection("users").doc(user.uid).get();
+        const data = snap.data() || {};
+        if (data.patternHash) sessionStorage.setItem("patternHash", data.patternHash);
+
+        // Also cache emergency contacts
+        if (data.profile) {
+          const ENC_KEY = "SafeHer_AES_Secret_Key_2024!";
+          try {
+            const bytes = CryptoJS.AES.decrypt(data.profile, ENC_KEY);
+            const parsed = JSON.parse(bytes.toString(CryptoJS.enc.Utf8));
+            if (parsed.emergencyContacts) {
+    const contacts = JSON.stringify(parsed.emergencyContacts);
+
+    sessionStorage.setItem("emergencyContacts", contacts);
+    localStorage.setItem("emergencyContacts", contacts);
+}
+          } catch(e) {}
+        }
+      } catch(e) { console.warn("Firestore fetch failed:", e); }
+    }
+
+    hideLoading();
+
+    // ── PWA / voice mode check first ──
+    if (checkAndShowVoicePage()) return;
+
+    const params = new URLSearchParams(window.location.search);
+    const mode   = params.get("mode");
+
+    if (mode === "verify") {
+      showView("view-verify");
+      setTimeout(() => {
+        buildDragGrid("ver-grid", "ver-canvas", "ver-wrap", verDotCenters, "verify");
+      }, 150);
+    } else {
+      showView("view-settings");
+      setTimeout(() => {
+        buildDragGrid("set-grid", "set-canvas", "set-wrap", setDotCenters, "set");
+      }, 150);
+    }
+  });
+});
+
+// ══════════════════════════════════════
+//  BUILD DRAG PATTERN GRID
+// ══════════════════════════════════════
+function buildDragGrid(gridId, canvasId, wrapId, centersArr, mode) {
+  const grid   = document.getElementById(gridId);
+  const wrap   = document.getElementById(wrapId);
+  const canvas = document.getElementById(canvasId);
+  grid.innerHTML = "";
+
+  for (let i = 0; i < 9; i++) {
+    const cell  = document.createElement("div");
+    cell.className = "dot-cell";
+    const outer = document.createElement("div");
+    outer.className = "dot-outer";
+    outer.dataset.idx = i;
+    const inner = document.createElement("div");
+    inner.className = "dot-inner";
+    outer.appendChild(inner);
+    cell.appendChild(outer);
+    grid.appendChild(cell);
+  }
+
+  // After render — get dot center positions
+  setTimeout(() => {
+    const wRect = wrap.getBoundingClientRect();
+    canvas.width  = wRect.width;
+    canvas.height = wRect.height;
+    canvas.style.width  = wRect.width  + "px";
+    canvas.style.height = wRect.height + "px";
+    centersArr.length = 0;
+    grid.querySelectorAll(".dot-outer").forEach((d) => {
+      const r = d.getBoundingClientRect();
+      centersArr.push({
+        x: r.left - wRect.left + r.width  / 2,
+        y: r.top  - wRect.top  + r.height / 2
+      });
+    });
+    attachDragEvents(wrapId, canvasId, centersArr, mode);
+  }, 100);
+}
+
+// ══════════════════════════════════════
+//  DRAG EVENTS
+// ══════════════════════════════════════
+function attachDragEvents(wrapId, canvasId, centers, mode) {
+  const wrap   = document.getElementById(wrapId);
+  const canvas = document.getElementById(canvasId);
+  const ctx    = canvas.getContext("2d");
+  let dragging = false;
+  let pattern  = [];
+  let lastPos  = null;
+
+  function getPos(e) {
+    const r = wrap.getBoundingClientRect();
+    if (e.touches) {
+      return { x: e.touches[0].clientX - r.left, y: e.touches[0].clientY - r.top };
+    }
+    return { x: e.clientX - r.left, y: e.clientY - r.top };
+  }
+
+  function nearDot(pos) {
+    for (let i = 0; i < centers.length; i++) {
+      const dx = pos.x - centers[i].x;
+      const dy = pos.y - centers[i].y;
+      if (Math.sqrt(dx*dx + dy*dy) < 30 && !pattern.includes(i)) return i;
+    }
+    return -1;
+  }
+
+  function drawLines(currentPos) {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    if (pattern.length === 0) return;
+    const color = mode === "verify" ? "#ff2d6b" : (
+      mode === "confirm" ? "#00e5a0" : "#ff2d6b"
+    );
+    ctx.strokeStyle = color;
+    ctx.lineWidth   = 2.5;
+    ctx.lineCap     = "round";
+    ctx.lineJoin    = "round";
+    ctx.globalAlpha = 0.7;
+    ctx.beginPath();
+    ctx.moveTo(centers[pattern[0]].x, centers[pattern[0]].y);
+    for (let i = 1; i < pattern.length; i++) {
+      ctx.lineTo(centers[pattern[i]].x, centers[pattern[i]].y);
+    }
+    if (currentPos) ctx.lineTo(currentPos.x, currentPos.y);
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+  }
+
+  function activateDot(idx) {
+    const grid = wrap.querySelector(".dot-grid");
+    const dots = grid.querySelectorAll(".dot-outer");
+    const cls  = mode === "confirm" ? "active-confirm" :
+                 mode === "verify"  ? "active-verify"  : "active";
+    dots[idx].classList.add(cls);
+  }
+
+  function start(e) {
+    e.preventDefault();
+    dragging = true;
+    pattern  = [];
+    lastPos  = null;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    // clear all dot active classes
+    wrap.querySelectorAll(".dot-outer").forEach(d => {
+      d.classList.remove("active","active-confirm","active-verify");
+    });
+    const pos  = getPos(e);
+    const idx  = nearDot(pos);
+    if (idx >= 0) { pattern.push(idx); activateDot(idx); }
+    updateHint(mode, pattern);
+  }
+
+  function move(e) {
+    if (!dragging) return;
+    e.preventDefault();
+    const pos = getPos(e);
+    lastPos   = pos;
+    const idx = nearDot(pos);
+    if (idx >= 0) { pattern.push(idx); activateDot(idx); }
+    drawLines(pos);
+    updateHint(mode, pattern);
+  }
+
+  function end(e) {
+    if (!dragging) return;
+    dragging = false;
+    drawLines(null);
+    onPatternComplete(mode, pattern);
+  }
+
+  wrap.addEventListener("mousedown",  start, { passive: false });
+  wrap.addEventListener("mousemove",  move,  { passive: false });
+  wrap.addEventListener("mouseup",    end);
+  wrap.addEventListener("touchstart", start, { passive: false });
+  wrap.addEventListener("touchmove",  move,  { passive: false });
+  wrap.addEventListener("touchend",   end);
+}
+
+function updateHint(mode, pattern) {
+  if (mode === "set") {
+    const h = document.getElementById("set-hint");
+    if (pattern.length === 0)           { h.textContent = "Hold and drag across at least 4 dots"; h.className = "pattern-hint"; }
+    else if (pattern.length < MIN_DOTS) { h.textContent = `${MIN_DOTS - pattern.length} more dot(s) needed`; h.className = "pattern-hint"; }
+    else                                { h.textContent = `✅ ${pattern.length} dots — release to continue`; h.className = "pattern-hint ok"; }
+  } else if (mode === "confirm") {
+    const h = document.getElementById("set-hint");
+    h.textContent = `Confirming… (${pattern.length}/${setPattern.length} dots)`;
+    h.className   = "pattern-hint";
+  } else if (mode === "verify") {
+    const h = document.getElementById("ver-hint");
+    h.textContent = `${pattern.length} dot(s) drawn`;
+    h.className   = "pattern-hint";
+  }
+}
+
+function onPatternComplete(mode, pattern) {
+  if (mode === "set") {
+    setPattern = [...pattern];
+    if (setPattern.length >= MIN_DOTS) {
+      document.getElementById("btn-continue").disabled = false;
+      document.getElementById("set-hint").textContent  = `✅ ${setPattern.length} dots — tap Continue`;
+      document.getElementById("set-hint").className    = "pattern-hint ok";
+    } else {
+      document.getElementById("btn-continue").disabled = true;
+    }
+  } else if (mode === "confirm") {
+    confirmPattern = [...pattern];
+    checkConfirmMatch();
+  } else if (mode === "verify") {
+    verPattern = [...pattern];
+    if (verPattern.length >= MIN_DOTS) checkVerify();
+    else {
+      document.getElementById("ver-hint").textContent = "Too short — draw at least 4 dots";
+      document.getElementById("ver-hint").className   = "pattern-hint err";
+    }
+  }
+}
+
+// ══════════════════════════════════════
+//  SETTINGS: CONFIRM STEP
+// ══════════════════════════════════════
+function goConfirm() {
+  if (setPattern.length < MIN_DOTS) return;
+  isConfirmStep = true;
+  document.getElementById("stp1").className = "stp done";
+  document.getElementById("stp2").className = "stp active";
+  document.getElementById("set-label").textContent = "Re-draw to confirm";
+  document.getElementById("set-hint").textContent  = "Re-draw your pattern to confirm";
+  document.getElementById("set-hint").className    = "pattern-hint";
+  document.getElementById("btn-continue").style.display = "none";
+  // rebuild grid in confirm mode
+  buildDragGrid("set-grid", "set-canvas", "set-wrap", setDotCenters, "confirm");
+}
+
+function checkConfirmMatch() {
+  const h = document.getElementById("set-hint");
+  if (JSON.stringify(confirmPattern) === JSON.stringify(setPattern)) {
+    h.textContent = "✅ Patterns match! Saving…";
+    h.className   = "pattern-hint ok";
+    savePattern();
+  } else {
+    h.textContent = "❌ Doesn't match. Try again.";
+    h.className   = "pattern-hint err";
+    setTimeout(() => {
+      buildDragGrid("set-grid", "set-canvas", "set-wrap", setDotCenters, "confirm");
+      h.textContent = "Re-draw your pattern to confirm";
+      h.className   = "pattern-hint";
+    }, 1200);
+  }
+}
+
+async function savePattern() {
+  showLoading("Saving pattern securely…");
+  try {
+    const hash = CryptoJS.SHA256(JSON.stringify(setPattern)).toString();
+    // Save to localStorage so it persists across sessions
+    localStorage.setItem("safeher_patternHash", hash);
+    sessionStorage.setItem("patternHash", hash);
+    // Save to Firestore so any device can verify
+    try {
+      await db.collection("users").doc(currentUser.uid).update({ patternHash: hash });
+    } catch(e) { console.warn("Could not save patternHash to Firestore:", e); }
+    hideLoading();
+    showToast("🔐 SOS Pattern saved!", "success");
+    setTimeout(() => {
+      showView("view-verify");
+      // Rebuild verify grid AFTER view is visible so canvas gets correct dimensions
+      setTimeout(() => {
+        verDotCenters.length = 0;
+        verPattern = [];
+        buildDragGrid("ver-grid", "ver-canvas", "ver-wrap", verDotCenters, "verify");
+      }, 150);
+    }, 1800);
+  } catch(e) {
+    hideLoading();
+    showToast("❌ Failed to save. Try again.", "error");
+    console.error(e);
+  }
+}
+
+function resetSet() {
+  isConfirmStep = false;
+  setPattern    = [];
+  confirmPattern= [];
+  document.getElementById("stp1").className = "stp active";
+  document.getElementById("stp2").className = "stp pending";
+  document.getElementById("set-label").textContent = "Draw your SOS pattern";
+  document.getElementById("btn-continue").style.display = "";
+  document.getElementById("btn-continue").disabled = true;
+  buildDragGrid("set-grid", "set-canvas", "set-wrap", setDotCenters, "set");
+}
+
+// ══════════════════════════════════════
+//  VERIFY: CHECK PATTERN → FIRE SOS
+// ══════════════════════════════════════
+async function checkVerify() {
+  // Check sessionStorage first, then localStorage
+  let storedHash = sessionStorage.getItem("patternHash") || localStorage.getItem("safeher_patternHash");
+  if (storedHash) sessionStorage.setItem("patternHash", storedHash);
+
+  if (!storedHash) {
+    showToast("⚠️ No pattern set. Go to Settings first.", "warn");
+    return;
+  }
+
+  const inputHash = CryptoJS.SHA256(JSON.stringify(verPattern)).toString();
+
+  if (inputHash === storedHash) {
+    // ✅ CORRECT PATTERN → go to voice detection page
+    document.getElementById("ver-hint").textContent = "✅ Pattern correct! Starting voice detection...";
+    document.getElementById("ver-hint").className   = "pattern-hint ok";
+    setTimeout(() => {
+      showView("view-voice");
+      initVoiceDetection();
+    }, 800);
+  } else {
+    // ❌ WRONG
+    verAttempts++;
+    document.getElementById("attempt-count").textContent = verAttempts;
+    document.getElementById("ver-hint").textContent = "❌ Wrong pattern. Try again.";
+    document.getElementById("ver-hint").className   = "pattern-hint err";
+
+    setTimeout(() => {
+      // reset verify grid
+      verPattern = [];
+      const canvas = document.getElementById("ver-canvas");
+      canvas.getContext("2d").clearRect(0, 0, canvas.width, canvas.height);
+      document.getElementById("ver-wrap").querySelectorAll(".dot-outer").forEach(d => {
+        d.classList.remove("active","active-verify","active-confirm");
+      });
+      document.getElementById("ver-hint").textContent = "Hold and drag to draw pattern";
+      document.getElementById("ver-hint").className   = "pattern-hint";
+    }, 900);
+
+    if (verAttempts >= MAX_ATTEMPTS) {
+      showToast("🚨 Too many wrong attempts — Auto SOS!", "error");
+      setTimeout(startCountdown, 1000);
+    }
+  }
+}
+
+// ══════════════════════════════════════
+//  COUNTDOWN
+// ══════════════════════════════════════
+function startCountdown() {
+  countdownSec = 10;
+  sosTriggered = false;
+  showView("view-countdown");
+  updateCountdownUI(10);
+  countdownTimer = setInterval(() => {
+    countdownSec--;
+    updateCountdownUI(countdownSec);
+    if (countdownSec <= 0) { clearInterval(countdownTimer); fireSOS(); }
+  }, 1000);
+}
+
+function updateCountdownUI(sec) {
+  document.getElementById("countdown-num").textContent = sec;
+  const offset = 565 - (sec / 10) * 565;
+  document.getElementById("ring-bar").style.strokeDashoffset = offset;
+}
+
+function cancelSOS() {
+  clearInterval(countdownTimer);
+  sosTriggered = false;
+  showToast("✅ SOS Cancelled", "success");
+  setTimeout(() => window.location.href = "home.html", 1200);
+}
+
+// ══════════════════════════════════════
+//  FIRE SOS — alert contacts + all users
+// ══════════════════════════════════════
+async function fireSOS() {
+  if (sosTriggered) return;
+  sosTriggered = true;
+  showView("view-sos-active");
+  showLoading("🚨 Sending SOS alerts…");
+
+  const locationStr = await getLocationString();
+  const timeStr     = new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" });
+  const userName    = currentUser?.displayName || sessionStorage.getItem("userName") || "SafeHer User";
+  const userEmail   = currentUser?.email || "";
+  const db          = firebase.firestore();
+
+  // ── OFFLINE CHECK ──
+  if (!navigator.onLine) {
+    showLoading("📴 Offline — sending SMS & queueing email…");
+
+    const storedContacts = JSON.parse(sessionStorage.getItem("emergencyContacts") || "[]");
+
+    // 1️⃣ Queue emails for background sync (sends when internet returns)
+    storedContacts.forEach(c => {
+      if (!c.email) return;
+      window.queueSOSOffline && window.queueSOSOffline({
+        serviceId:  EMAILJS_SERVICE_ID,
+        templateId: EMAILJS_TEMPLATE_ID,
+        publicKey:  EMAILJS_PUBLIC_KEY,
+        params: {
+          to_email:     c.email,
+          to_name:      c.name,
+          subject:      `🆘 SOS ALERT — ${userName} needs help!`,
+          user_name:    userName,
+          destination:  "Voice SOS triggered (offline)",
+          start_time:   timeStr,
+          event_time:   timeStr,
+          location_url: locationStr,
+          message:
+            `🚨 EMERGENCY — ${userName} triggered an SOS alert while offline!\n\n` +
+            `Alert time: ${timeStr}\nLocation: ${locationStr}\n\n` +
+            `This message was queued offline and sent when signal returned.\n\n— SafeHer`
+        }
+      });
+    });
+
+    // 2️⃣ Open dialer for first contact immediately
+    const firstWithPhone = storedContacts.find(c => c.phone && c.phone.trim());
+    if (firstWithPhone) {
+      const dialNum = formatPhone(firstWithPhone.phone);
+      console.log("SafeHer offline: Calling", firstWithPhone.name, dialNum);
+      window.location.href = `tel:${dialNum}`;
+    }
+
+    // 3️⃣ Show SMS + remaining contacts UI
+    fireOfflineSMS(storedContacts, userName, locationStr, timeStr);
+
+    hideLoading();
+    return;
+  }
+
+  try {
+    // Save SOS record
+    await db.collection("sos_alerts").add({
+      userId:    currentUser.uid,
+      userName,
+      userEmail,
+      location:  locationStr,
+      time:      timeStr,
+      lat:       userLocation?.lat || null,
+      lng:       userLocation?.lng || null,
+      status:    "active",
+      createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+
+    const emailJobs = [];
+
+    // 1️⃣ Alert EMERGENCY CONTACTS from alerts/ collection
+    const contactsSnap = await db.collection("alerts")
+      .where("fromUid", "==", currentUser.uid)
+      .where("type",    "==", "new_user")
+      .get();
+
+    contactsSnap.forEach(doc => {
+      const c = doc.data();
+      if (c.toEmail) {
+        emailJobs.push(sendSOSEmail(
+          c.toEmail,
+          c.toName || "Emergency Contact",
+          userName, locationStr, timeStr, true
+        ));
+      }
+    });
+
+    // 2️⃣ Alert ALL REGISTERED USERS from users/ collection
+    const usersSnap = await db.collection("users").get();
+    usersSnap.forEach(doc => {
+      const u = doc.data();
+      if (u.email && u.email !== userEmail) {
+        emailJobs.push(sendSOSEmail(
+          u.email,
+          u.name || "SafeHer User",
+          userName, locationStr, timeStr, false
+        ));
+      }
+    });
+
+    const results = await Promise.allSettled(emailJobs);
+    const sent    = results.filter(r => r.status === "fulfilled").length;
+
+    hideLoading();
+    showToast(`🚨 SOS sent! ${sent} email alert(s) delivered.`, "error");
+
+    // ── ONLINE: Call first contact → then show SMS panel for all contacts ──
+    let onlineContacts = [];
+    try { onlineContacts = JSON.parse(sessionStorage.getItem("emergencyContacts") || localStorage.getItem("emergencyContacts") || "[]"); } catch(e) {}
+    const onlineWithPhone = onlineContacts.filter(c => c.phone && c.phone.trim()).map(c => ({ ...c, phone: formatPhone(c.phone) }));
+
+    // 1. Call first contact immediately
+    if (onlineWithPhone.length) {
+      setTimeout(() => { window.location.href = `tel:${onlineWithPhone[0].phone}`; }, 800);
+    }
+
+    // 2. Show SMS panel for ALL contacts (so user can send SMS to each after call)
+    setTimeout(() => {
+      showOnlineSMSPanel(onlineWithPhone, userName, locationStr, timeStr);
+    }, 1400);
+
+  } catch(e) {
+    console.error("SOS error:", e);
+    hideLoading();
+    showToast("🚨 SOS fired (some alerts may have failed)", "warn");
+    // Still try call + SMS even if Firebase/email failed
+    let fallbackContacts = [];
+    try { fallbackContacts = JSON.parse(sessionStorage.getItem("emergencyContacts") || localStorage.getItem("emergencyContacts") || "[]"); } catch(err) {}
+    const fallbackWithPhone = fallbackContacts.filter(c => c.phone && c.phone.trim()).map(c => ({ ...c, phone: formatPhone(c.phone) }));
+    if (fallbackWithPhone.length) {
+      setTimeout(() => { window.location.href = `tel:${fallbackWithPhone[0].phone}`; }, 800);
+    }
+    setTimeout(() => showOnlineSMSPanel(fallbackWithPhone, userName, locationStr, timeStr), 1400);
+  }
+}
+
+// ══════════════════════════════════════
+//  ONLINE SMS PANEL
+//  Shows after call dialer opens —
+//  lets user tap-send SMS to each contact
+// ══════════════════════════════════════
+function showOnlineSMSPanel(contacts, userName, locationStr, timeStr) {
+  const old = document.getElementById("_online-sms-overlay");
+  if (old) old.remove();
+
+  if (!contacts || contacts.length === 0) return; // no phone numbers → skip silently
+
+  const smsBody = encodeURIComponent(
+    `EMERGENCY! ${userName} needs help RIGHT NOW!\n` +
+    `Time: ${timeStr}\n` +
+    `Location: ${locationStr}\n\n` +
+    `Email alert sent. Please reach her immediately! SafeHer`
+  );
+
+  const contactRows = contacts.map((c, i) => `
+    <a href="sms:${c.phone}?body=${smsBody}"
+       onclick="markOnlineSMSSent(${i})"
+       id="_osms-btn-${i}"
+       style="
+         display:flex;align-items:center;justify-content:space-between;
+         background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.15);
+         border-radius:12px;padding:13px 16px;text-decoration:none;
+         color:#fff;margin-bottom:10px;font-family:'DM Sans',sans-serif;">
+      <div>
+        <div style="font-weight:700;font-size:0.93rem;">💬 SMS to ${c.name}</div>
+        <div style="font-size:0.76rem;opacity:0.6;margin-top:3px;">${c.phone}</div>
+      </div>
+      <div id="_osms-status-${i}"
+           style="font-size:0.78rem;background:rgba(255,45,107,0.3);
+                  border-radius:8px;padding:4px 10px;font-weight:600;white-space:nowrap;">
+        Tap to Send
+      </div>
+    </a>`).join("");
+
+  const overlay = document.createElement("div");
+  overlay.id = "_online-sms-overlay";
+  overlay.innerHTML = `
+    <div style="
+      position:fixed;inset:0;background:rgba(0,0,0,0.88);
+      z-index:99999;display:flex;align-items:center;justify-content:center;
+      padding:20px;font-family:'DM Sans',sans-serif;">
+      <div style="
+        background:#07100d;border:1px solid rgba(0,229,160,0.3);
+        border-radius:20px;padding:26px 22px;max-width:400px;width:100%;
+        box-shadow:0 0 60px rgba(0,229,160,0.15);">
+
+        <div style="text-align:center;margin-bottom:18px;">
+          <div style="font-size:2.2rem;margin-bottom:8px;">✅</div>
+          <div style="font-family:'Syne',sans-serif;font-weight:800;font-size:1.2rem;color:#fff;">
+            Email Sent — Now SMS?
+          </div>
+          <div style="font-size:0.8rem;color:rgba(255,255,255,0.5);margin-top:6px;line-height:1.5;">
+            Emails delivered. Tap below to also<br/>send an SMS to each contact.
+          </div>
+        </div>
+
+        ${contactRows}
+
+        <button onclick="document.getElementById('_online-sms-overlay').remove()"
+          style="width:100%;padding:11px;border-radius:10px;margin-top:4px;
+                 border:1px solid rgba(255,255,255,0.12);
+                 background:transparent;color:rgba(255,255,255,0.45);
+                 cursor:pointer;font-family:'DM Sans',sans-serif;font-size:0.85rem;">
+          Skip SMS — Done
+        </button>
+      </div>
+    </div>`;
+
+  document.body.appendChild(overlay);
+}
+
+window.markOnlineSMSSent = function(i) {
+  const statusEl = document.getElementById("_osms-status-" + i);
+  const btnEl    = document.getElementById("_osms-btn-"    + i);
+  if (statusEl) { statusEl.textContent = "✅ Sent"; statusEl.style.background = "rgba(0,229,160,0.25)"; }
+  if (btnEl)    { btnEl.style.borderColor = "rgba(0,229,160,0.3)"; }
+};
+
+// ══════════════════════════════════════
+//  DIALER — open tel: for contacts
+// ══════════════════════════════════════
+// ── Format phone to E.164 (+91XXXXXXXXXX for India) ──
+function formatPhone(phone) {
+  if (!phone) return "";
+  // Remove spaces, dashes, brackets
+  let p = phone.replace(/[\s\-().]/g, "");
+  // Already has + → return as is
+  if (p.startsWith("+")) return p;
+  // Has 91 prefix (10 digits after) → add +
+  if (p.startsWith("91") && p.length === 12) return "+" + p;
+  // 10 digit Indian number → add +91
+  if (p.length === 10) return "+91" + p;
+  // Anything else → return as is
+  return p;
+}
+
+function openDialerForContacts() {
+
+  let contacts = [];
+
+  try {
+    contacts = JSON.parse(sessionStorage.getItem("emergencyContacts") || "[]");
+  } catch(e) {}
+
+  if (!contacts.length) {
+    try {
+      contacts = JSON.parse(localStorage.getItem("emergencyContacts") || "[]");
+
+      if (contacts.length) {
+        sessionStorage.setItem(
+          "emergencyContacts",
+          JSON.stringify(contacts)
+        );
+      }
+
+    } catch(e) {}
+  }
+
+  const withPhone = contacts
+    .filter(c => c.phone && c.phone.trim())
+    .map(c => ({ ...c, phone: formatPhone(c.phone) }));
+
+  if (!withPhone.length) {
+    showToast("⚠️ No phone numbers found in emergency contacts. Please add them in Register page.", "warn");
+    return;
+  }
+
+  const first = withPhone[0];
+  console.log("SafeHer: Opening dialer for", first.name, first.phone);
+
+  // Opens Android/iOS dialer with number pre-filled
+  window.location.href = `tel:${first.phone}`;
+
+  if (withPhone.length > 1) {
+    setTimeout(() => {
+      showDialerUI(withPhone.slice(1), withPhone, false);
+    }, 600);
+  }
+}
+
+function showDialerUI(remainingContacts, allContacts, showOnly112) {
+  const old = document.getElementById("_dialer-overlay");
+  if (old) old.remove();
+
+  const contactButtons = remainingContacts.map((c, i) => `
+    <a href="tel:${c.phone}"
+       id="_dial-btn-${i}"
+       onclick="markDialed(${i})"
+       style="
+         display:flex;align-items:center;justify-content:space-between;
+         background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.15);
+         border-radius:12px;padding:14px 16px;text-decoration:none;
+         color:#fff;margin-bottom:10px;font-family:'DM Sans',sans-serif;">
+      <div>
+        <div style="font-weight:700;font-size:0.95rem;">📞 Call ${c.name}</div>
+        <div style="font-size:0.78rem;opacity:0.6;margin-top:3px;">${c.phone}</div>
+      </div>
+      <div id="_dial-status-${i}"
+           style="font-size:0.78rem;background:rgba(255,45,107,0.3);
+                  border-radius:8px;padding:4px 10px;font-weight:600;">
+        Tap to Call
+      </div>
+    </a>`).join("");
+
+  const overlay = document.createElement("div");
+  overlay.id = "_dialer-overlay";
+  overlay.innerHTML = `
+    <div style="
+      position:fixed;inset:0;background:rgba(0,0,0,0.88);
+      z-index:99999;display:flex;align-items:center;justify-content:center;
+      padding:20px;font-family:'DM Sans',sans-serif;">
+      <div style="
+        background:#0d1020;border:1px solid rgba(255,45,107,0.4);
+        border-radius:20px;padding:28px 24px;max-width:400px;width:100%;
+        box-shadow:0 0 60px rgba(255,45,107,0.3);">
+
+        <div style="text-align:center;margin-bottom:20px;">
+          <div style="font-size:2.2rem;margin-bottom:8px;">📞</div>
+          <div style="font-family:'Syne',sans-serif;font-weight:800;
+                      font-size:1.2rem;color:#fff;">
+            ${showOnly112 ? "Call Your Emergency Contacts" : "Call Remaining Contacts"}
+          </div>
+          <div style="font-size:0.8rem;color:rgba(255,255,255,0.5);
+                      margin-top:6px;line-height:1.5;">
+            ${showOnly112
+              ? "No phone numbers saved for contacts.<br/>Call emergency services directly."
+              : "Dialer opened for first contact.<br/>Tap below to call the others too."}
+          </div>
+        </div>
+
+        ${contactButtons}
+
+        <a href="tel:${allContacts[0]?.phone || ''}"
+           style="display:flex;align-items:center;justify-content:center;gap:8px;
+                  background:linear-gradient(135deg,#ff2d6b,#ff7043);
+                  border-radius:12px;padding:14px;text-decoration:none;
+                  color:#fff;font-weight:700;font-size:0.95rem;margin-bottom:10px;
+                  ${!allContacts[0]?.phone ? 'opacity:0.4;pointer-events:none;' : ''}">
+          📞 Call ${allContacts[0]?.name || 'Emergency Contact'}
+        </a>
+
+        <button onclick="document.getElementById('_dialer-overlay').remove()"
+          style="width:100%;padding:11px;border-radius:10px;
+                 border:1px solid rgba(255,255,255,0.12);
+                 background:transparent;color:rgba(255,255,255,0.45);
+                 cursor:pointer;font-family:'DM Sans',sans-serif;font-size:0.85rem;">
+          Close
+        </button>
+      </div>
+    </div>`;
+
+  document.body.appendChild(overlay);
+}
+
+window.markDialed = function(i) {
+  const statusEl = document.getElementById("_dial-status-" + i);
+  const btnEl    = document.getElementById("_dial-btn-" + i);
+  if (statusEl) {
+    statusEl.textContent = "✅ Called";
+    statusEl.style.background = "rgba(34,201,122,0.3)";
+  }
+  if (btnEl) btnEl.style.borderColor = "rgba(34,201,122,0.3)";
+};
+
+// ══════════════════════════════════════
+//  EMAILJS SEND
+// ══════════════════════════════════════
+async function sendSOSEmail(toEmail, toName, fromName, location, time, isContact) {
+  try {
+    await emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, {
+      to_email:     toEmail,
+      to_name:      toName,
+      subject:      `🆘 SOS ALERT — ${fromName} needs help!`,
+      user_name:    fromName,
+      destination:  "Voice SOS triggered",
+      start_time:   time,
+      event_time:   time,
+      location_url: location,
+      message:
+        `🚨 EMERGENCY — ${fromName} has triggered a VOICE SOS alert!\n\n` +
+        `Alert time: ${time}\n` +
+        `Live location: ${location}\n\n` +
+        `Please reach her immediately!\n\n` +
+        `— SafeHer`
+    });
+    return true;
+  } catch(e) {
+    console.error("Email failed:", toEmail, e);
+    return false;
+  }
+}
+
+// ══════════════════════════════════════
+//  GPS
+// ══════════════════════════════════════
+function startGPS() {
+  if (!navigator.geolocation) return;
+  navigator.geolocation.watchPosition(
+    async pos => {
+      userLocation = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+
+      // Reverse geocode then save AES-encrypted to localStorage
+      try {
+        const r = await fetch(
+          `https://nominatim.openstreetmap.org/reverse?lat=${userLocation.lat}&lon=${userLocation.lng}&format=json`,
+          { headers: { 'Accept-Language': 'en' } }
+        );
+        const d = await r.json();
+        const address = d.display_name || `${userLocation.lat.toFixed(5)}, ${userLocation.lng.toFixed(5)}`;
+        saveLocationEncrypted({
+          lat: userLocation.lat,
+          lng: userLocation.lng,
+          address,
+          capturedAt: new Date().toLocaleString()
+        });
+      } catch {
+        saveLocationEncrypted({
+          lat: userLocation.lat,
+          lng: userLocation.lng,
+          address: `${userLocation.lat.toFixed(5)}, ${userLocation.lng.toFixed(5)}`,
+          capturedAt: new Date().toLocaleString()
+        });
+      }
+    },
+    err => console.warn("GPS:", err),
+    { enableHighAccuracy: true, maximumAge: 15000 }
+  );
+}
+
+async function getLocationString() {
+  if (!userLocation) return "Location unavailable";
+
+  // Google Maps link always works — even with just coords
+  const mapsLink = `https://maps.google.com/?q=${userLocation.lat},${userLocation.lng}`;
+
+  try {
+    const r = await fetch(
+      `https://nominatim.openstreetmap.org/reverse?lat=${userLocation.lat}&lon=${userLocation.lng}&format=json`
+    );
+    const d = await r.json();
+    const address = d.display_name || `${userLocation.lat.toFixed(6)}, ${userLocation.lng.toFixed(6)}`;
+    return `${address} | Maps: ${mapsLink}`;
+  } catch {
+    // Offline or geocode failed — coords + maps link is enough
+    return `Lat: ${userLocation.lat.toFixed(6)}, Lng: ${userLocation.lng.toFixed(6)} | Maps: ${mapsLink}`;
+  }
+}
+
+// ══════════════════════════════════════
+//  HELPERS
+// ══════════════════════════════════════
+function showView(id) {
+  document.querySelectorAll(".view").forEach(v => v.classList.remove("active"));
+  document.getElementById(id).classList.add("active");
+}
+function showLoading(msg) {
+  document.getElementById("loading-msg").textContent = msg || "Loading...";
+  document.getElementById("loading-overlay").classList.add("show");
+}
+function hideLoading() {
+  document.getElementById("loading-overlay").classList.remove("show");
+}
+function showToast(msg, type="") {
+  const t = document.getElementById("toast");
+  t.textContent = msg;
+  t.className = `toast ${type} show`;
+  setTimeout(() => { t.className = `toast ${type}`; }, 3500);
+}
+function updateFakeClock() {
+  const now = new Date();
+  const tEl = document.getElementById("fake-time");
+  const dEl = document.getElementById("fake-date");
+  if (tEl) tEl.textContent = now.toLocaleTimeString("en-IN", { hour:"2-digit", minute:"2-digit", hour12:true });
+  if (dEl) dEl.textContent = now.toLocaleDateString("en-IN", { weekday:"long", day:"numeric", month:"long" });
+}
+
+// ══════════════════════════════════════
+//  🔴 STEP 1: VOICE → AUTO CALL
+//  ▼▼▼ ADD YOUR NUMBER HERE ▼▼▼
+// ══════════════════════════════════════
+//  Format : +91 followed by 10-digit mobile number
+//  This number will be called immediately when
+//  a voice keyword is detected.
+// ══════════════════════════════════════
+
+function callEmergencyNumber() {
+  // Get first contact with phone number
+  let contacts = JSON.parse(sessionStorage.getItem("emergencyContacts") || localStorage.getItem("emergencyContacts") || "[]");
+  const first = contacts.find(c => c.phone && c.phone.trim());
+  if (!first) { console.warn("No phone numbers in emergency contacts"); return; }
+  window.location.href = "tel:" + formatPhone(first.phone);
+}
+
+// ══════════════════════════════════════
+//  VOICE DETECTION
+// ══════════════════════════════════════
+const VOICE_KEYWORDS = ["help", "sos", "bachao", "emergency", "save me", "help me"];
+const KW_BADGE_MAP   = { "help":"kw-help","sos":"kw-sos","bachao":"kw-bachao","emergency":"kw-emergency","save me":"kw-save","help me":"kw-help" };
+
+let voiceRecognition  = null;
+let voiceActive       = false;
+let voicePaused       = false;
+let voiceTriggered    = false;
+let volAnimFrame      = null;
+
+function initVoiceDetection() {
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SpeechRecognition) {
+    document.getElementById("voice-status").textContent    = "⚠️ Voice not supported on this browser";
+    document.getElementById("voice-transcript").textContent = "Use Chrome on Android for best results";
+    document.getElementById("btn-voice-toggle").disabled   = true;
+    return;
+  }
+
+  voiceRecognition = new SpeechRecognition();
+  voiceRecognition.continuous      = true;
+  voiceRecognition.interimResults  = true;
+  voiceRecognition.lang            = "en-IN";   // Indian English — also picks up Hindi words like bachao
+  voiceRecognition.maxAlternatives = 3;
+
+  voiceRecognition.onstart = () => {
+    voiceActive = true;
+    setVoiceUI("listening");
+  };
+
+  voiceRecognition.onresult = (event) => {
+    if (voiceTriggered) return;
+
+    let fullTranscript = "";
+    for (let i = event.resultIndex; i < event.results.length; i++) {
+      // Check all alternatives, not just the top one
+      for (let a = 0; a < event.results[i].length; a++) {
+        fullTranscript += event.results[i][a].transcript.toLowerCase() + " ";
+      }
+    }
+
+    // Show what was heard
+    const lastResult = event.results[event.results.length - 1][0].transcript;
+    document.getElementById("voice-transcript").textContent = `Heard: "${lastResult}"`;
+
+    // Animate volume bars randomly to show mic is active
+    animateVolBars();
+
+    // Check for keywords
+    for (const kw of VOICE_KEYWORDS) {
+      if (fullTranscript.includes(kw)) {
+        voiceTriggered = true;
+        triggerKeyword(kw);
+        return;
+      }
+    }
+  };
+
+  voiceRecognition.onerror = (e) => {
+    // "no-speech" is normal — just restart silently
+    if (e.error === "no-speech" || e.error === "aborted") {
+      if (!voicePaused) restartVoice();
+      return;
+    }
+    if (e.error === "not-allowed") {
+      document.getElementById("voice-status").textContent    = "❌ Mic permission denied";
+      document.getElementById("voice-transcript").textContent = "Please allow mic access and reload";
+      setVoiceUI("paused");
+      return;
+    }
+    // Any other error → try restart after 1s
+    setTimeout(() => { if (!voicePaused) restartVoice(); }, 1000);
+  };
+
+  voiceRecognition.onend = () => {
+    voiceActive = false;
+    // Auto-restart unless user paused it
+    if (!voicePaused && !voiceTriggered) {
+      setTimeout(restartVoice, 300);
+    }
+  };
+
+  startVoice();
+}
+
+function startVoice() {
+  if (!voiceRecognition) return;
+  voicePaused = false;
+  voiceTriggered = false;
+  try {
+    voiceRecognition.start();
+  } catch(e) { /* already running */ }
+}
+
+function restartVoice() {
+  if (!voiceRecognition || voicePaused || voiceTriggered) return;
+  try { voiceRecognition.stop(); } catch(e) {}
+  setTimeout(() => {
+    try { voiceRecognition.start(); } catch(e) {}
+  }, 200);
+}
+
+function toggleVoice() {
+  if (!voiceRecognition) return;
+  if (voicePaused) {
+    // Resume
+    voicePaused = false;
+    voiceTriggered = false;
+    startVoice();
+    document.getElementById("btn-voice-toggle").textContent = "⏸ Pause Listening";
+    document.getElementById("btn-voice-toggle").classList.remove("stop-btn");
+  } else {
+    // Pause
+    voicePaused = true;
+    try { voiceRecognition.stop(); } catch(e) {}
+    setVoiceUI("paused");
+    document.getElementById("btn-voice-toggle").textContent = "▶ Resume Listening";
+    document.getElementById("btn-voice-toggle").classList.add("stop-btn");
+  }
+}
+
+function setVoiceUI(state) {
+  const orb    = document.getElementById("mic-orb");
+  const status = document.getElementById("voice-status");
+  if (state === "listening") {
+    orb.classList.remove("paused");
+    orb.classList.add("listening");
+    orb.textContent = "🎤";
+    status.textContent = "🔴 Listening… Shout a keyword!";
+    status.style.color = "var(--accent)";
+  } else if (state === "paused") {
+    orb.classList.remove("listening");
+    orb.classList.add("paused");
+    orb.textContent = "🔇";
+    status.textContent = "⏸ Paused — tap Resume to listen again";
+    status.style.color = "var(--muted)";
+    // flatten vol bars
+    document.querySelectorAll(".vol-bar").forEach(b => {
+      b.style.height = "4px"; b.classList.remove("active");
+    });
+  } else if (state === "triggered") {
+    orb.classList.remove("listening","paused");
+    orb.textContent = "🚨";
+    orb.style.background = "linear-gradient(135deg,#e74c3c,#c0392b)";
+    orb.style.boxShadow  = "0 0 60px rgba(231,76,60,0.8)";
+    status.textContent = "🚨 KEYWORD DETECTED — SOS Starting!";
+    status.style.color = "#e74c3c";
+  }
+}
+
+function triggerKeyword(kw) {
+  // Flash the matching badge
+  const badgeId = KW_BADGE_MAP[kw];
+  if (badgeId) {
+    document.getElementById(badgeId)?.classList.add("triggered");
+  }
+
+  // Stop recognition
+  try { voiceRecognition.stop(); } catch(e) {}
+
+  setVoiceUI("triggered");
+  document.getElementById("voice-transcript").textContent = `Keyword detected: "${kw.toUpperCase()}"`;
+
+  showToast(`🚨 "${kw.toUpperCase()}" detected! Starting SOS…`, "error");
+
+  // Go to countdown → countdown ends → fireSOS()
+  // fireSOS handles: GPS → call → SMS → email (same as button SOS)
+  setTimeout(startCountdown, 800);
+}
+
+function animateVolBars() {
+  const bars = document.querySelectorAll(".vol-bar");
+  bars.forEach(b => {
+    const h = Math.floor(Math.random() * 36) + 4;
+    b.style.height = h + "px";
+    b.classList.toggle("active", h > 20);
+  });
+}
+
+// ══════════════════════════════════════
+//  OFFLINE SMS
+// ══════════════════════════════════════
+
+function fireOfflineSMS(contacts, userName, locationStr, timeStr) {
+  if (!contacts || contacts.length === 0) {
+    showOfflineSMSUI([], userName, locationStr);
+    return;
+  }
+
+  const phones = contacts.filter(c => c.phone);
+  const smsBody = encodeURIComponent(
+    `🚨 EMERGENCY! ${userName} needs help RIGHT NOW!\n` +
+    `Time: ${timeStr}\n` +
+    `Location: ${locationStr}\n\n` +
+    `Please reach her immediately! — SafeHer`
+  );
+
+  if (phones.length === 0) {
+    // No phone numbers saved — show manual instruction
+    showOfflineSMSUI(contacts, userName, locationStr);
+    return;
+  }
+
+  // On mobile: open SMS app for first contact
+  // User taps Send, then comes back and taps next
+  showOfflineSMSUI(phones, userName, locationStr);
+}
+
+function showOfflineSMSUI(contacts, userName, locationStr) {
+  // Remove any existing overlay
+  const old = document.getElementById('_offline-sms-overlay');
+  if (old) old.remove();
+
+  const smsBody = encodeURIComponent(
+    `🚨 EMERGENCY! ${userName} needs help RIGHT NOW!\n` +
+    `Location: ${locationStr}\n\n` +
+    `Please reach her or call emergency services immediately! — SafeHer`
+  );
+
+  const contactRows = contacts.length > 0
+    ? contacts.map((c, i) => `
+        <a href="sms:${c.phone || ''}?body=${smsBody}"
+           onclick="markSMSSent(${i})"
+           id="_sms-btn-${i}"
+           style="
+             display:flex;align-items:center;justify-content:space-between;
+             background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);
+             border-radius:12px;padding:14px 16px;text-decoration:none;
+             color:#fff;margin-bottom:10px;font-family:'DM Sans',sans-serif;
+             transition:background 0.2s;">
+          <div>
+            <div style="font-weight:700;font-size:0.95rem;">📱 SMS ${c.name}</div>
+            <div style="font-size:0.78rem;opacity:0.7;margin-top:3px;">${c.phone || 'No number saved'}</div>
+          </div>
+          <div id="_sms-status-${i}"
+               style="font-size:0.8rem;background:rgba(255,45,107,0.3);
+                      border-radius:8px;padding:4px 10px;font-weight:600;">
+            Tap to Send
+          </div>
+        </a>`).join('')
+    : `<div style="color:rgba(255,255,255,0.6);font-size:0.88rem;padding:12px;
+                   text-align:center;border:1px dashed rgba(255,255,255,0.2);border-radius:10px;">
+         ⚠️ No phone numbers saved for contacts.<br/>
+         <span style="font-size:0.78rem;margin-top:4px;display:block;">
+           Add phone numbers in Register page for offline SMS.
+         </span>
+       </div>`;
+
+  const overlay = document.createElement('div');
+  overlay.id = '_offline-sms-overlay';
+  overlay.innerHTML = `
+    <div style="
+      position:fixed;inset:0;background:rgba(0,0,0,0.85);
+      z-index:99999;display:flex;align-items:center;justify-content:center;
+      padding:20px;font-family:'DM Sans',sans-serif;">
+      <div style="
+        background:#1a0810;border:1px solid rgba(255,45,107,0.4);
+        border-radius:20px;padding:28px 24px;max-width:400px;width:100%;
+        box-shadow:0 0 60px rgba(255,45,107,0.3);">
+
+        <div style="text-align:center;margin-bottom:20px;">
+          <div style="font-size:2.5rem;margin-bottom:8px;">🚨</div>
+          <div style="font-family:'Syne',sans-serif;font-weight:800;font-size:1.3rem;color:#fff;">
+            OFFLINE SOS
+          </div>
+          <div style="font-size:0.82rem;color:rgba(255,255,255,0.55);margin-top:6px;line-height:1.5;">
+            No internet detected. Tap each button to<br/>
+            send an SMS — works on cellular only.
+          </div>
+        </div>
+
+        <div style="
+          background:rgba(255,45,107,0.08);border:1px solid rgba(255,45,107,0.2);
+          border-radius:10px;padding:10px 14px;margin-bottom:18px;
+          font-size:0.78rem;color:rgba(255,200,200,0.8);line-height:1.6;">
+          📧 Email alerts are <strong style="color:#ff6b9d;">queued</strong> and will auto-send
+          the moment you get signal — even if app is closed.
+        </div>
+
+        ${contactRows}
+
+        <div style="margin-top:6px;">
+          <a href="tel:${contacts[0]?.phone || ''}"
+             style="display:flex;align-items:center;justify-content:center;gap:8px;
+                    background:linear-gradient(135deg,#ff2d6b,#ff7043);
+                    border-radius:12px;padding:14px;text-decoration:none;
+                    color:#fff;font-weight:700;font-size:0.95rem;margin-bottom:10px;
+                    ${!contacts[0]?.phone ? 'opacity:0.4;pointer-events:none;' : ''}">
+            📞 Call ${contacts[0]?.name || 'Emergency Contact'}
+          </a>
+          <button onclick="document.getElementById('_offline-sms-overlay').remove()"
+            style="width:100%;padding:11px;border-radius:10px;border:1px solid rgba(255,255,255,0.15);
+                   background:transparent;color:rgba(255,255,255,0.5);cursor:pointer;
+                   font-family:'DM Sans',sans-serif;font-size:0.85rem;">
+            Close
+          </button>
+        </div>
+      </div>
+    </div>`;
+
+  document.body.appendChild(overlay);
+}
+
+window.markSMSSent = function(i) {
+  const statusEl = document.getElementById('_sms-status-' + i);
+  const btnEl    = document.getElementById('_sms-btn-' + i);
+  if (statusEl) {
+    statusEl.textContent = '✅ Sent';
+    statusEl.style.background = 'rgba(34,201,122,0.3)';
+  }
+  if (btnEl) btnEl.style.background = 'rgba(34,201,122,0.08)';
+};
+
+// ══════════════════════════════════════
+//  PWA: AUTO-OPEN VOICE PAGE ON LAUNCH
+//  If user is already logged in (session
+//  exists) skip pattern verify and go
+//  straight to voice detection view.
+// ══════════════════════════════════════
+function checkAndShowVoicePage() {
+  const params = new URLSearchParams(window.location.search);
+  const mode   = params.get("mode");
+
+  // If opened as PWA standalone OR mode=voice → show voice page directly
+  const isStandalone = window.matchMedia("(display-mode: standalone)").matches
+                    || window.navigator.standalone === true;
+
+  if (mode === "voice" || (isStandalone && sessionStorage.getItem("patternHash"))) {
+    showView("view-voice");
+    setTimeout(initVoiceDetection, 500);
+    return true; // handled
+  }
+  return false;
+}
+</script>
+  <script src="pwa.js"></script>
+</body>
+</html>
