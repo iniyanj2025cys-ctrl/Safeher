@@ -10,7 +10,7 @@
 [![Firebase](https://img.shields.io/badge/Backend-Firebase-ffca28?style=for-the-badge&logo=firebase)](#)
 [![JavaScript](https://img.shields.io/badge/Frontend-Vanilla%20JS-f7df1e?style=for-the-badge&logo=javascript&logoColor=black)](#)
 [![Security](https://img.shields.io/badge/Security-AES--256%20%7C%20SHA--256-22c97a?style=for-the-badge)](#)
-[![License](https://img.shields.io/badge/License-MIT-blue?style=for-the-badge)](#)
+
 
 
 </div>
